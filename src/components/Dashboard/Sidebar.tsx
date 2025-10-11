@@ -1,9 +1,12 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import { useAppDispatch } from "../../store"; // ✅ use from store
+import { performLogout } from "../../store/slices/authSlice";
 import { theme } from "../../styles/theme";
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useAppDispatch(); // ✅ typed dispatch
 
   const navItems = [
     { icon: "view_cozy", path: "/dashboard/products" },
@@ -18,6 +21,14 @@ export default function Sidebar() {
     cursor: "pointer",
     fontSize: 24,
     transition: "all 0.2s ease",
+  };
+
+  const handleLogout = async () => {
+    const confirmed = window.confirm("Are you sure you want to log out?");
+    if (!confirmed) return;
+
+    await dispatch(performLogout()).unwrap(); // ✅ no type errors now
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -81,7 +92,14 @@ export default function Sidebar() {
 
       {/* Logout */}
       <div>
-        <span className="material-symbols-outlined" style={iconBase}>
+        <span
+          className="material-symbols-outlined"
+          style={{
+            ...iconBase,
+            color: theme.colors.error,
+          }}
+          onClick={handleLogout}
+        >
           logout
         </span>
       </div>

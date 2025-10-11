@@ -1,12 +1,18 @@
+import { useSelector } from "react-redux";
 import { theme } from "../../styles/theme";
+import type { RootState } from "../../store";
 
 export default function Header() {
+  const user = useSelector((state: RootState) => state.auth.user);
+  const userPhoto =
+    user?.photoURL || localStorage.getItem("userPhoto") || undefined;
+
   return (
     <header
       style={{
         display: "flex",
-        justifyContent: "space-between",
         alignItems: "center",
+        justifyContent: "space-between",
         padding: `${theme.spacing.lg}px ${theme.spacing.xl}px`,
         borderBottom: `1px solid ${theme.colors.borderLight}`,
         backgroundColor: theme.colors.surfaceLight,
@@ -14,8 +20,8 @@ export default function Header() {
     >
       <h1
         style={{
-          fontWeight: 700,
-          fontSize: theme.typography.fontSize.lg,
+          fontSize: theme.typography.fontSize.xl,
+          fontWeight: theme.typography.fontWeight.bold,
           color: theme.colors.textDark,
         }}
       >
@@ -23,23 +29,27 @@ export default function Header() {
       </h1>
 
       <div style={{ display: "flex", alignItems: "center", gap: theme.spacing.lg }}>
-        <button
+        <span
+          className="material-symbols-outlined"
           style={{
-            background: "none",
-            border: "none",
             color: theme.colors.textMuted,
             cursor: "pointer",
+            fontSize: 24,
           }}
         >
-          🔔
-        </button>
+          notifications
+        </span>
+
+        {/* Profile photo */}
         <div
           style={{
             width: 40,
             height: 40,
-            borderRadius: "50%",
-            backgroundImage:
-              'url("https://lh3.googleusercontent.com/a/default-user")',
+            borderRadius: theme.radii.full,
+            backgroundColor: theme.colors.borderLight,
+            backgroundImage: userPhoto
+              ? `url(${userPhoto})`
+              : "url('https://www.svgrepo.com/show/384674/account-avatar-profile-user.svg')",
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}

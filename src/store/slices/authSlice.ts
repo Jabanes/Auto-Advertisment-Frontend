@@ -6,6 +6,7 @@ import {
 import { authService } from "../../services/authService";
 import type { AuthResponse, UserDTO } from "../../types/auth";
 import { RequestStatus } from "../../types/requestStatus";
+import { persistor } from "../index";
 
 type AuthState = {
   user: UserDTO | null;
@@ -21,6 +22,7 @@ const initialState: AuthState = {
   error: null,
 };
 
+// 🔐 Google login
 export const loginWithGoogleIdToken = createAsyncThunk<
   AuthResponse,
   string,
@@ -33,6 +35,7 @@ export const loginWithGoogleIdToken = createAsyncThunk<
   }
 });
 
+// 📧 Email login
 export const emailLogin = createAsyncThunk<
   AuthResponse,
   { email: string; password: string },
@@ -45,6 +48,19 @@ export const emailLogin = createAsyncThunk<
   }
 });
 
+// ✅ Safe logout thunk (handles side effects outside reducer)
+export const performLogout = createAsyncThunk("auth/performLogout", async (_, { dispatch }) => {
+  // Clear browser storage
+  localStorage.clear();
+  sessionStorage.clear();
+
+  // Clear redux-persist
+  await persistor.purge();
+
+  // Dispatch the pure reducer to reset redux state
+  dispatch(logoutSuccess());
+});
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -55,10 +71,17 @@ const authSlice = createSlice({
       state.status = RequestStatus.IDLE;
       state.error = null;
     },
+
+    // Pure reducer only
+    logoutSuccess(state) {
+      state.user = null;
+      state.serverToken = null;
+      state.status = RequestStatus.IDLE;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
-      // 🔐 Google login
       .addCase(loginWithGoogleIdToken.pending, (s) => {
         s.status = RequestStatus.LOADING;
         s.error = null;
@@ -75,8 +98,6 @@ const authSlice = createSlice({
         s.status = RequestStatus.FAILED;
         s.error = a.payload || "Google login failed";
       })
-
-      // 📧 Email login
       .addCase(emailLogin.pending, (s) => {
         s.status = RequestStatus.LOADING;
         s.error = null;
@@ -93,5 +114,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearAuth } = authSlice.actions;
+export const { clearAuth, logoutSuccess } = authSlice.actions;
 export default authSlice.reducer;

@@ -4,12 +4,14 @@ import storage from "redux-persist/lib/storage";
 import authReducer from "./slices/authSlice";
 import { useDispatch, useSelector, type TypedUseSelectorHook } from "react-redux";
 
+// 🧩 Combine all reducers
 const rootReducer = combineReducers({
   auth: authReducer,
   // user: userReducer,        // (future)
   // product: productReducer,  // (future)
 });
 
+// 💾 redux-persist config
 const persistConfig = {
   key: "root",
   storage,
@@ -18,16 +20,22 @@ const persistConfig = {
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
+// 🏗️ Create store
 export const store = configureStore({
   reducer: persistedReducer,
-  middleware: (getDefault) =>
-    getDefault({
-      serializableCheck: false, // redux-persist stores non-serializable values
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: false, // required by redux-persist
     }),
 });
 
+// 🔁 Persistor
 export const persistor = persistStore(store);
+
+// 🧠 Types
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
-export const useAppDispatch: () => AppDispatch = useDispatch;
+
+// ✅ Typed hooks (most important!)
+export const useAppDispatch = () => useDispatch<AppDispatch>();
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
