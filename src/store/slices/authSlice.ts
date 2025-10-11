@@ -5,12 +5,16 @@ import {
 } from "@reduxjs/toolkit";
 import { authService } from "../../services/authService";
 import type { AuthResponse, UserDTO } from "../../types/auth";
+import type { Product } from "../../types/product";
+import type { Business } from "../../types/business";
 import { RequestStatus } from "../../types/requestStatus";
 import { persistor } from "../index";
 
 type AuthState = {
   user: UserDTO | null;
   serverToken: string | null;
+  businesses: Business[];
+  products: Product[];
   status: RequestStatus;
   error?: string | null;
 };
@@ -18,6 +22,8 @@ type AuthState = {
 const initialState: AuthState = {
   user: null,
   serverToken: null,
+  businesses: [],
+  products: [],
   status: RequestStatus.IDLE,
   error: null,
 };
@@ -48,18 +54,25 @@ export const emailLogin = createAsyncThunk<
   }
 });
 
-// ✅ Safe logout thunk (handles side effects outside reducer)
-export const performLogout = createAsyncThunk("auth/performLogout", async (_, { dispatch }) => {
-  // Clear browser storage
-  localStorage.clear();
-  sessionStorage.clear();
+// 🚪 Safe logout thunk (handles full clear)
+export const performLogout = createAsyncThunk(
+  "auth/performLogout",
+  async (_, { dispatch }) => {
+    try {
+      // Clear browser storage
+      localStorage.clear();
+      sessionStorage.clear();
 
-  // Clear redux-persist
-  await persistor.purge();
+      // Clear redux-persist
+      await persistor.purge();
 
-  // Dispatch the pure reducer to reset redux state
-  dispatch(logoutSuccess());
-});
+      // Reset redux state
+      dispatch(logoutSuccess());
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  }
+);
 
 const authSlice = createSlice({
   name: "auth",
@@ -68,20 +81,24 @@ const authSlice = createSlice({
     clearAuth(state) {
       state.user = null;
       state.serverToken = null;
+      state.businesses = [];
+      state.products = [];
       state.status = RequestStatus.IDLE;
       state.error = null;
     },
 
-    // Pure reducer only
     logoutSuccess(state) {
       state.user = null;
       state.serverToken = null;
+      state.businesses = [];
+      state.products = [];
       state.status = RequestStatus.IDLE;
       state.error = null;
     },
   },
   extraReducers: (builder) => {
     builder
+      // 🔐 Google login
       .addCase(loginWithGoogleIdToken.pending, (s) => {
         s.status = RequestStatus.LOADING;
         s.error = null;
@@ -92,12 +109,16 @@ const authSlice = createSlice({
           s.status = RequestStatus.SUCCEEDED;
           s.user = a.payload.user;
           s.serverToken = a.payload.serverToken;
+          s.businesses = a.payload.businesses || [];
+          s.products = a.payload.products || [];
         }
       )
       .addCase(loginWithGoogleIdToken.rejected, (s, a) => {
         s.status = RequestStatus.FAILED;
         s.error = a.payload || "Google login failed";
       })
+
+      // 📧 Email login
       .addCase(emailLogin.pending, (s) => {
         s.status = RequestStatus.LOADING;
         s.error = null;
@@ -106,6 +127,8 @@ const authSlice = createSlice({
         s.status = RequestStatus.SUCCEEDED;
         s.user = a.payload.user;
         s.serverToken = a.payload.serverToken;
+        s.businesses = a.payload.businesses || [];
+        s.products = a.payload.products || [];
       })
       .addCase(emailLogin.rejected, (s, a) => {
         s.status = RequestStatus.FAILED;
