@@ -98,15 +98,18 @@ const authSlice = createSlice({
         s.status = RequestStatus.LOADING;
         s.error = null;
       })
-      .addCase(
-        loginWithGoogleIdToken.fulfilled,
-        (s, a: PayloadAction<AuthResponse>) => {
-          s.status = RequestStatus.SUCCEEDED;
-          s.user = a.payload.user;
-          s.serverToken = a.payload.serverToken;
-          s.businesses = a.payload.businesses || [];
-        }
-      )
+      .addCase(loginWithGoogleIdToken.fulfilled, (s, a: PayloadAction<AuthResponse>) => {
+        s.status = RequestStatus.SUCCEEDED;
+        s.user = a.payload.user;
+        // 🧩 FIX: support idToken as fallback
+        s.serverToken =
+          a.payload.serverToken ||
+          (a.payload as any).token ||
+          (a.payload as any).accessToken ||
+          (a.payload as any).idToken ||
+          null;
+        s.businesses = a.payload.businesses || [];
+      })
       .addCase(loginWithGoogleIdToken.rejected, (s, a) => {
         s.status = RequestStatus.FAILED;
         s.error = a.payload || "Google login failed";
@@ -120,7 +123,12 @@ const authSlice = createSlice({
       .addCase(emailLogin.fulfilled, (s, a: PayloadAction<AuthResponse>) => {
         s.status = RequestStatus.SUCCEEDED;
         s.user = a.payload.user;
-        s.serverToken = a.payload.serverToken;
+        s.serverToken =
+          a.payload.serverToken ||
+          (a.payload as any).token ||
+          (a.payload as any).accessToken ||
+          (a.payload as any).idToken ||
+          null;
         s.businesses = a.payload.businesses || [];
       })
       .addCase(emailLogin.rejected, (s, a) => {

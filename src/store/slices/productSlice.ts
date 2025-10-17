@@ -36,11 +36,11 @@ export const fetchProducts = createAsyncThunk<
 // ✏️ UPDATE
 export const updateProduct = createAsyncThunk<
   Product,
-  { token: string; product: Product },
+  { token: string; product: Partial<Product> & { id: string; businessId: string } },
   { rejectValue: string }
 >("products/update", async ({ token, product }, { rejectWithValue }) => {
   try {
-    return await productService.update(token, product);
+    return await productService.update(token, product as Product);
   } catch (e: any) {
     return rejectWithValue(e?.response?.data?.message || "Failed to update product");
   }
@@ -49,11 +49,11 @@ export const updateProduct = createAsyncThunk<
 // ➕ CREATE
 export const createProduct = createAsyncThunk<
   Product,
-  { token: string; payload: Partial<Product> },
+  { token: string; product: Partial<Product>; businessId: string },
   { rejectValue: string }
->("products/create", async ({ token, payload }, { rejectWithValue }) => {
+>("products/create", async ({ token, product, businessId }, { rejectWithValue }) => {
   try {
-    return await productService.create(token, payload);
+    return await productService.create(token, { ...product, businessId });
   } catch (e: any) {
     return rejectWithValue(e?.response?.data?.message || "Failed to create product");
   }
@@ -124,6 +124,7 @@ const productSlice = createSlice({
 
       // CREATE
       .addCase(createProduct.fulfilled, (s, a) => {
+        // Optimistically add the new product to the top of the list
         s.items.unshift(a.payload);
       })
 
