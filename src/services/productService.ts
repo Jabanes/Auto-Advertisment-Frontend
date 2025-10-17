@@ -62,11 +62,15 @@ export const productService = {
 
 
     /**
-     * ❌ Delete product by ID
+     * ❌ Delete product fully (Firestore + Storage)
      */
-    async remove(accessToken: string, id: string): Promise<{ success: boolean }> {
+    async remove(
+        accessToken: string,
+        businessId: string,
+        productId: string
+    ): Promise<{ success: boolean }> {
         const { data } = await axios.delete<{ success: boolean }>(
-            `${BASE_URL}/products/${id}`,
+            `${BASE_URL}/products/${businessId}/${productId}`,
             {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,

@@ -19,7 +19,14 @@ export default function ProductGrid() {
       >
         {products.length > 0 ? (
           products.map((product) => (
-            <div key={product.id} onClick={() => setSelectedProduct(product)}>
+            <div
+              key={product.id}
+              onClick={(e) => {
+                // 🧠 open modal only on left click
+                if (e.button === 0) setSelectedProduct(product);
+              }}
+              onContextMenu={(e) => e.preventDefault()} // disable context-triggered click
+            >
               <ProductCard product={product} />
             </div>
           ))

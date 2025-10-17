@@ -62,17 +62,16 @@ export const createProduct = createAsyncThunk<
 // ❌ DELETE
 export const deleteProduct = createAsyncThunk<
   string,
-  { token: string; id: string },
+  { token: string; businessId: string; id: string },
   { rejectValue: string }
->("products/delete", async ({ token, id }, { rejectWithValue }) => {
+>("products/delete", async ({ token, businessId, id }, { rejectWithValue }) => {
   try {
-    await productService.remove(token, id);
-    return id;
+    await productService.remove(token, businessId, id);
+    return id; // return deleted id for Redux
   } catch (e: any) {
     return rejectWithValue(e?.response?.data?.message || "Failed to delete product");
   }
 });
-
 // 🧱 SLICE
 const productSlice = createSlice({
   name: "products",
