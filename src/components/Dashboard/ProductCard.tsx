@@ -85,14 +85,14 @@ export default function ProductCard({ product }: { product: Product }) {
                 product.status === "posted"
                   ? theme.colors.success
                   : product.status === "enriched"
-                  ? theme.colors.primaryLight
-                  : theme.colors.warningDark,
+                    ? theme.colors.primaryLight
+                    : theme.colors.warningDark,
               backgroundColor:
                 product.status === "posted"
                   ? theme.colors.success + "22"
                   : product.status === "enriched"
-                  ? theme.colors.primaryLight + "22"
-                  : theme.colors.warningDark + "22",
+                    ? theme.colors.primaryLight + "22"
+                    : theme.colors.warningDark + "22",
               padding: "4px 10px",
               borderRadius: theme.radii.full,
             }}
@@ -102,7 +102,7 @@ export default function ProductCard({ product }: { product: Product }) {
         )}
       </div>
 
-      {/* 🗑️ Delete button with smooth pop animation */}
+      {/* ⚙️ Popup actions (Delete + Generate) */}
       <div
         style={{
           position: "absolute",
@@ -112,8 +112,53 @@ export default function ProductCard({ product }: { product: Product }) {
           transform: showDelete ? "scale(1)" : "scale(0)",
           opacity: showDelete ? 1 : 0,
           transition: "all 0.25s cubic-bezier(0.25, 1, 0.5, 1)",
+          display: "flex",
+          gap: 8,
         }}
       >
+        {/* 🟢 Generate button */}
+        <button
+          onClick={async (e) => {
+            e.stopPropagation();
+            if (!token || !businessId) return;
+            try {
+              const res = await fetch(
+                "https://n8n.srv1040889.hstgr.cloud/webhook/enrich-product",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    accessToken: token,
+                    businessId,
+                    product,
+                  }),
+                }
+              );
+              const data = await res.json();
+              console.log("✅ Enrichment workflow triggered:", data);
+              alert("AI enrichment started! Check status shortly.");
+            } catch (err) {
+              console.error("❌ Failed to trigger enrichment:", err);
+              alert("Failed to trigger enrichment workflow.");
+            } finally {
+              setShowDelete(false);
+            }
+          }}
+          style={{
+            background: theme.colors.success,
+            border: "none",
+            color: "white",
+            fontWeight: 600,
+            padding: "8px 14px",
+            borderRadius: 8,
+            cursor: "pointer",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.25)",
+          }}
+        >
+          Generate
+        </button>
+
+        {/* 🗑️ Delete button */}
         <button
           onClick={handleDelete}
           style={{

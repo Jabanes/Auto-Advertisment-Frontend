@@ -99,6 +99,7 @@ const authSlice = createSlice({
         s.error = null;
       })
       .addCase(loginWithGoogleIdToken.fulfilled, (s, a: PayloadAction<AuthResponse>) => {
+        console.log("Auth Slice - Google login fulfilled:", (a.payload as any).accessToken );
         s.status = RequestStatus.SUCCEEDED;
         s.user = a.payload.user;
         // 🧩 FIX: support idToken as fallback
