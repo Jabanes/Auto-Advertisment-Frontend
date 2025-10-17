@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAppDispatch } from "../../store"; // ✅ use from store
+import { useAppDispatch } from "../../store"; 
 import { performLogout } from "../../store/slices/authSlice";
 import { theme } from "../../styles/theme";
 
