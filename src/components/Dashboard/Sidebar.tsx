@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAppDispatch } from "../../store"; 
+import { useAppDispatch } from "../../store";
 import { performLogout } from "../../store/slices/authSlice";
 import { theme } from "../../styles/theme";
 
@@ -34,6 +34,10 @@ export default function Sidebar() {
   return (
     <aside
       style={{
+        position: "fixed",
+        left: 0,
+        top: 0,
+        bottom: 0,
         width: 80,
         backgroundColor: theme.colors.backgroundLight,
         borderRight: `1px solid ${theme.colors.borderLight}`,
@@ -42,6 +46,7 @@ export default function Sidebar() {
         alignItems: "center",
         padding: `${theme.spacing.lg}px 0`,
         justifyContent: "space-between",
+        height: "100vh",
       }}
     >
       <div style={{ color: theme.colors.primary, marginBottom: 40 }}>

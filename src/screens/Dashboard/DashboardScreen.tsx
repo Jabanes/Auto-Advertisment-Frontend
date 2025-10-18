@@ -8,21 +8,31 @@ export default function DashboardScreen() {
   return (
     <div
       style={{
-        display: "flex",
         minHeight: "100vh",
         width: "100vw",
         backgroundColor: theme.colors.backgroundLight,
         color: theme.colors.textDark,
         fontFamily: theme.typography.fontFamily.display,
         overflow: "hidden",
+        direction: "rtl", // ✅ keep text direction RTL inside all children
       }}
     >
       <Sidebar />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+
+      {/* 🧱 Main content area */}
+      <div
+        style={{
+          marginLeft: 80, // Same as sidebar width
+          width: "calc(100% - 80px)",
+          position: "relative", // For floating button positioning
+        }}
+      >
         <Header />
+
         <main style={{ flex: 1, padding: theme.spacing.xl }}>
           <Outlet />
         </main>
+
         <FloatingAddButton />
       </div>
     </div>

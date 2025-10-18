@@ -125,7 +125,11 @@ export default function ProductCard({ product }: { product: Product }) {
     >
       {/* Image */}
       <img
-        src={product.imageUrl || "/placeholder.jpg"}
+        src={
+          product.status === "enriched"
+            ? product.generatedImageUrl ?? product.imageUrl ?? "/placeholder.jpg"
+            : product.imageUrl ?? "/placeholder.jpg"
+        }
         alt={product.name}
         style={{
           width: "100%",

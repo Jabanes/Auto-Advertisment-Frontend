@@ -2,11 +2,24 @@ import { useState } from "react";
 import { useAppSelector } from "../../store/hooks";
 import ProductCard from "./ProductCard";
 import ProductEditModal from "../ProductEditModal";
+import DisplayEnrichedProductModal from "../DisplayEnrichedProductModal";
 import { theme } from "../../styles/theme";
 
 export default function ProductGrid() {
   const { items: products } = useAppSelector((state) => state.products);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [showDisplayModal, setShowDisplayModal] = useState(false);
+
+  const handleProductClick = (product: any, e: React.MouseEvent) => {
+    if (e.button !== 0) return; // only left click
+    if (product.status === "enriched") {
+      setSelectedProduct(product);
+      setShowDisplayModal(true);
+    } else {
+      setSelectedProduct(product);
+      setShowDisplayModal(false);
+    }
+  };
 
   return (
     <>
@@ -21,11 +34,8 @@ export default function ProductGrid() {
           products.map((product) => (
             <div
               key={product.id}
-              onClick={(e) => {
-                // 🧠 open modal only on left click
-                if (e.button === 0) setSelectedProduct(product);
-              }}
-              onContextMenu={(e) => e.preventDefault()} // disable context-triggered click
+              onClick={(e) => handleProductClick(product, e)}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <ProductCard product={product} />
             </div>
@@ -43,13 +53,19 @@ export default function ProductGrid() {
         )}
       </div>
 
-      {selectedProduct && (
-        <ProductEditModal
-          mode="edit"
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-        />
-      )}
+      {selectedProduct &&
+        (showDisplayModal ? (
+          <DisplayEnrichedProductModal
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+          />
+        ) : (
+          <ProductEditModal
+            mode="edit"
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+          />
+        ))}
     </>
   );
 }
