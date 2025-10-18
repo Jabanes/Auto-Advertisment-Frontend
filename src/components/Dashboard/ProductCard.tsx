@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import { deleteProduct } from "../../store/slices/productSlice";
+import {
+  deleteProduct,
+  setProductStatus,
+} from "../../store/slices/productSlice";
 import { theme } from "../../styles/theme";
 import type { Product } from "../../types/product";
 
@@ -9,32 +12,103 @@ export default function ProductCard({ product }: { product: Product }) {
   const token = useAppSelector((s) => s.auth.serverToken);
   const businessId = useAppSelector((s) => s.auth.businesses[0]?.businessId);
 
-  const [showDelete, setShowDelete] = useState(false);
+  const N8N_URL = import.meta.env.VITE_N8N_URL;
+  const [showMenu, setShowMenu] = useState(false);
+
+  // ✅ Inject CSS keyframes once (only on first mount)
+  useEffect(() => {
+    const existingStyle = document.getElementById("product-card-animations");
+    if (!existingStyle) {
+      const style = document.createElement("style");
+      style.id = "product-card-animations";
+      style.innerHTML = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    // No cleanup - keep animations for all cards
+  }, []);
 
   const handleRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    e.stopPropagation(); // 🧱 block bubbling to parent (no modal)
-    setShowDelete((prev) => !prev);
+    e.stopPropagation();
+    setShowMenu((p) => !p);
   };
 
   const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // 🧱 block click bubbling
+    e.stopPropagation();
     if (!token || !businessId || !product.id) return;
-
-    const confirmDelete = window.confirm(
-      `Are you sure you want to permanently delete "${product.name}"?`
-    );
-    if (!confirmDelete) return;
-
+    if (!window.confirm(`Delete "${product.name}" permanently?`)) return;
     try {
       await dispatch(deleteProduct({ token, businessId, id: product.id })).unwrap();
-    } catch (err) {
-      console.error("❌ Failed to delete product", err);
+    } catch {
       alert("Failed to delete product");
     }
-
-    setShowDelete(false);
+    setShowMenu(false);
   };
+
+  const handleGenerate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!token || !businessId) return;
+
+    // Don't allow re-triggering if already processing
+    if (isProcessing) return;
+
+    console.log(`🚀 Triggering enrichment for product ${product.id}`);
+
+    // Optimistic update for instant UI feedback
+    dispatch(setProductStatus({ id: product.id, status: "processing" }));
+
+    try {
+      // 1. Update status to "processing" in backend first (persists to DB)
+      const API_URL = import.meta.env.VITE_API_URL;
+      await fetch(`${API_URL}/products/update/${businessId}/${product.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: "processing" }),
+      });
+
+      console.log("✅ Status updated to processing in DB");
+
+      // 2. Trigger n8n workflow (fire & forget)
+      fetch(`${N8N_URL}/webhook/enrich-product`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken: token,
+          businessId,
+          product,
+        }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          console.log("✅ n8n workflow triggered successfully:", data);
+          // Server will emit socket event when complete
+        })
+        .catch((err) => {
+          console.error("❌ Workflow trigger failed:", err);
+          // Set failed status if n8n trigger fails
+          dispatch(setProductStatus({ id: product.id, status: "failed" }));
+        });
+    } catch (err) {
+      console.error("❌ Failed to update status:", err);
+      dispatch(setProductStatus({ id: product.id, status: "failed" }));
+    }
+
+    setShowMenu(false);
+  };
+
+  const isProcessing = product.status === "processing";
 
   return (
     <div
@@ -49,6 +123,7 @@ export default function ProductCard({ product }: { product: Product }) {
         transition: "transform 0.15s ease",
       }}
     >
+      {/* Image */}
       <img
         src={product.imageUrl || "/placeholder.jpg"}
         alt={product.name}
@@ -57,9 +132,43 @@ export default function ProductCard({ product }: { product: Product }) {
           height: 200,
           objectFit: "cover",
           borderBottom: "1px solid rgba(0,0,0,0.08)",
+          filter: isProcessing ? "grayscale(0.4)" : "none",
         }}
       />
 
+      {/* ✅ Animated overlay spinner */}
+      {isProcessing && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(255,255,255,0.85)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 600,
+            fontSize: 16,
+            color: theme.colors.primary,
+            animation: "fadeIn 0.3s ease",
+          }}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              border: "3px solid rgba(0,0,0,0.1)",
+              borderTop: `3px solid ${theme.colors.primary}`,
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              marginBottom: 8,
+            }}
+          />
+          Processing...
+        </div>
+      )}
+
+      {/* Details */}
       <div style={{ padding: "10px 12px" }}>
         <h3
           style={{
@@ -75,6 +184,7 @@ export default function ProductCard({ product }: { product: Product }) {
           {product.name || "Unnamed Product"}
         </h3>
 
+        {/* Status badge */}
         {product.status && (
           <div
             style={{
@@ -86,13 +196,21 @@ export default function ProductCard({ product }: { product: Product }) {
                   ? theme.colors.success
                   : product.status === "enriched"
                     ? theme.colors.primaryLight
-                    : theme.colors.warningDark,
+                    : product.status === "processing"
+                      ? theme.colors.warningDark
+                      : product.status === "failed"
+                        ? theme.colors.error
+                        : theme.colors.textMuted,
               backgroundColor:
                 product.status === "posted"
                   ? theme.colors.success + "22"
                   : product.status === "enriched"
                     ? theme.colors.primaryLight + "22"
-                    : theme.colors.warningDark + "22",
+                    : product.status === "processing"
+                      ? theme.colors.warningDark + "22"
+                      : product.status === "failed"
+                        ? theme.colors.error + "22"
+                        : theme.colors.backgroundLight,
               padding: "4px 10px",
               borderRadius: theme.radii.full,
             }}
@@ -102,48 +220,23 @@ export default function ProductCard({ product }: { product: Product }) {
         )}
       </div>
 
-      {/* ⚙️ Popup actions (Delete + Generate) */}
+      {/* Context menu */}
       <div
         style={{
           position: "absolute",
           bottom: 10,
           right: 10,
           zIndex: 10,
-          transform: showDelete ? "scale(1)" : "scale(0)",
-          opacity: showDelete ? 1 : 0,
+          transform: showMenu ? "scale(1)" : "scale(0)",
+          opacity: showMenu ? 1 : 0,
           transition: "all 0.25s cubic-bezier(0.25, 1, 0.5, 1)",
           display: "flex",
           gap: 8,
         }}
       >
-        {/* 🟢 Generate button */}
         <button
-          onClick={async (e) => {
-            e.stopPropagation();
-            if (!token || !businessId) return;
-            try {
-              const res = await fetch(
-                "https://n8n.srv1040889.hstgr.cloud/webhook/enrich-product",
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    accessToken: token,
-                    businessId,
-                    product,
-                  }),
-                }
-              );
-              const data = await res.json();
-              console.log("✅ Enrichment workflow triggered:", data);
-              alert("AI enrichment started! Check status shortly.");
-            } catch (err) {
-              console.error("❌ Failed to trigger enrichment:", err);
-              alert("Failed to trigger enrichment workflow.");
-            } finally {
-              setShowDelete(false);
-            }
-          }}
+          onClick={handleGenerate}
+          disabled={isProcessing}
           style={{
             background: theme.colors.success,
             border: "none",
@@ -151,14 +244,14 @@ export default function ProductCard({ product }: { product: Product }) {
             fontWeight: 600,
             padding: "8px 14px",
             borderRadius: 8,
-            cursor: "pointer",
+            cursor: isProcessing ? "not-allowed" : "pointer",
+            opacity: isProcessing ? 0.7 : 1,
             boxShadow: "0 4px 10px rgba(0,0,0,0.25)",
           }}
         >
-          Generate
+          {isProcessing ? "Processing..." : "Generate"}
         </button>
 
-        {/* 🗑️ Delete button */}
         <button
           onClick={handleDelete}
           style={{

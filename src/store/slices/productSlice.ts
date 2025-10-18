@@ -82,17 +82,55 @@ const productSlice = createSlice({
       state.items = action.payload;
       state.status = RequestStatus.SUCCEEDED;
     },
-    // local/optimistic updates
-    updateProductLocally: (state, action: PayloadAction<Product>) => {
+
+    // 🔔 Socket event handler: product:updated
+    // Merges incoming fields with existing product (idempotent)
+    updateProductLocally: (state, action: PayloadAction<Partial<Product> & { id: string }>) => {
       const idx = state.items.findIndex((p) => p.id === action.payload.id);
-      if (idx !== -1) state.items[idx] = action.payload;
+      if (idx !== -1) {
+        // Merge incoming fields with existing product
+        state.items[idx] = {
+          ...state.items[idx],
+          ...action.payload,
+        };
+      } else {
+        // Product doesn't exist locally yet - add it
+        console.warn(`Product ${action.payload.id} not found locally, adding it`);
+        state.items.unshift(action.payload as Product);
+      }
     },
+
+    // 🔔 Socket event handler: product:deleted
     removeProductLocally: (state, action: PayloadAction<string>) => {
       state.items = state.items.filter((p) => p.id !== action.payload);
     },
+
+    // 🔔 Socket event handler: product:created
     addProductLocally: (state, action: PayloadAction<Product>) => {
-      state.items.unshift(action.payload);
+      // Avoid duplicates (idempotent)
+      const exists = state.items.some((p) => p.id === action.payload.id);
+      if (!exists) {
+        state.items.unshift(action.payload);
+      } else {
+        console.log(`Product ${action.payload.id} already exists, skipping duplicate add`);
+      }
     },
+
+    // Optimistic update for UI responsiveness (e.g., "processing" state)
+    // Will be reconciled by next socket event
+    setProductStatus: (
+      state,
+      action: PayloadAction<{ id: string; status: Product["status"] }>
+    ) => {
+      const idx = state.items.findIndex((p) => p.id === action.payload.id);
+      if (idx !== -1) {
+        state.items[idx] = {
+          ...state.items[idx],
+          status: action.payload.status,
+        };
+      }
+    },
+
     clearProducts: (state) => {
       state.items = [];
       state.status = RequestStatus.IDLE;
@@ -123,12 +161,18 @@ const productSlice = createSlice({
 
       // CREATE
       .addCase(createProduct.fulfilled, (s, a) => {
-        // Optimistically add the new product to the top of the list
-        s.items.unshift(a.payload);
+        // Don't add here - socket event will handle it
+        // This prevents duplicates when backend emits product:created
+        const exists = s.items.some((p) => p.id === a.payload.id);
+        if (!exists) {
+          s.items.unshift(a.payload);
+        }
       })
 
       // DELETE
       .addCase(deleteProduct.fulfilled, (s, a) => {
+        // Filter is idempotent, but socket event will also handle removal
+        // Keep this for immediate feedback before socket event arrives
         s.items = s.items.filter((p) => p.id !== a.payload);
       });
   },
@@ -139,6 +183,7 @@ export const {
   updateProductLocally,
   removeProductLocally,
   addProductLocally,
+  setProductStatus,
   clearProducts,
 } = productSlice.actions;
 

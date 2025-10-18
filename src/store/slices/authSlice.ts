@@ -90,6 +90,17 @@ const authSlice = createSlice({
       state.status = RequestStatus.IDLE;
       state.error = null;
     },
+
+    // Socket event handler: business:created
+    addBusinessLocally(state, action: PayloadAction<Business>) {
+      // Avoid duplicates
+      const exists = state.businesses.some(
+        (b) => b.businessId === action.payload.businessId
+      );
+      if (!exists) {
+        state.businesses.push(action.payload);
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -139,5 +150,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearAuth, logoutSuccess } = authSlice.actions;
+export const { clearAuth, logoutSuccess, addBusinessLocally } = authSlice.actions;
 export default authSlice.reducer;

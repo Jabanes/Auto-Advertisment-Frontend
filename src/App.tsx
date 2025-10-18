@@ -4,8 +4,11 @@ import DashboardScreen from "./screens/Dashboard/DashboardScreen";
 import ProductsScreen from "./screens/Dashboard/ProductsScreen";
 import SettingsScreen from "./screens/Dashboard/SettingsScreen";
 import FutureScreen from "./screens/Dashboard/FutureScreen";
+import { useProductSocket } from "./hooks/useProductSocket";
 
 export default function App() {
+  useProductSocket();
+
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" />} />

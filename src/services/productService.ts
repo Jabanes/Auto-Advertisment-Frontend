@@ -1,15 +1,14 @@
 import axios from "axios";
 import type { Product } from "../types/product";
 
-const BASE_URL = import.meta.env.VITE_BACKEND_URL;
+const API_URL = import.meta.env.VITE_API_URL;
 
 export const productService = {
     /**
      * 🧩 Fetch all products for the authenticated user
      */
     async getAll(accessToken: string): Promise<Product[]> {
-        const { data } = await axios.get<{ products: Product[] }>(
-            `${BASE_URL}/products`,
+        const { data } = await axios.get<{ products: Product[] }>(`${API_URL}/products`,
             {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
@@ -23,8 +22,7 @@ export const productService = {
      * ✏️ Update product fields
      */
     async update(accessToken: string, product: Product): Promise<Product> {
-        const { data } = await axios.patch<{ product: Product }>(
-            `${BASE_URL}/products/update/${product.businessId}/${product.id}`,
+        const { data } = await axios.patch<{ product: Product }>(`${API_URL}/products/update/${product.businessId}/${product.id}`,
             product,
             {
                 headers: {
@@ -42,8 +40,7 @@ export const productService = {
     async create(accessToken: string, payload: Partial<Product> & { businessId: string }): Promise<Product> {
         const { businessId, ...productData } = payload;
 
-        const { data } = await axios.post<{ success: boolean; product: Product }>(
-            `${BASE_URL}/products/${businessId}`,
+        const { data } = await axios.post<{ success: boolean; product: Product }>(`${API_URL}/products/${businessId}`,
             productData,
             {
                 headers: {
@@ -69,8 +66,7 @@ export const productService = {
         businessId: string,
         productId: string
     ): Promise<{ success: boolean }> {
-        const { data } = await axios.delete<{ success: boolean }>(
-            `${BASE_URL}/products/${businessId}/${productId}`,
+        const { data } = await axios.delete<{ success: boolean }>(`${API_URL}/products/${businessId}/${productId}`,
             {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
@@ -93,8 +89,7 @@ export const productService = {
         const formData = new FormData();
         formData.append("file", file);
 
-        const { data } = await axios.post<{ success: boolean; url: string }>(
-            `${BASE_URL}/products/upload/${businessId}/${productId}`,
+        const { data } = await axios.post<{ success: boolean; url: string }>(`${API_URL}/products/upload/${businessId}/${productId}`,
             formData,
             {
                 headers: {
