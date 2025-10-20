@@ -128,7 +128,7 @@ export default function LoginScreen() {
           <div style={{ marginBottom: theme.spacing.lg }}>
             <input
               type="password"
-              placeholder="סיסמה"
+              placeholder="סיסמה חזקה"
               required
               autoComplete="current-password"
               value={password}
