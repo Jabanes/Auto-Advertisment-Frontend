@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "auto-advertisment",            
     "public": "dist",
     "ignore": [
       "firebase.json",
