@@ -274,7 +274,7 @@ console.log('User UID:', state.auth.user?.uid);
 
 ### Monitor WebSocket Events in Real-Time
 ```javascript
-// Add to useProductSocket temporarily:
+// Add to useSocket temporarily:
 socket.onAny((eventName, ...args) => {
   console.log(`🔔 Socket event: ${eventName}`, args);
 });
@@ -323,7 +323,7 @@ grep "📡 Emitted" logs.txt
 
 If issues arise, revert to polling-based approach:
 
-1. Disable socket hook in `App.tsx`: Comment out `useProductSocket()`
+1. Disable socket hook in `App.tsx`: Comment out `useSocket()`
 2. Add polling interval in `ProductsScreen.tsx`:
    ```typescript
    useEffect(() => {

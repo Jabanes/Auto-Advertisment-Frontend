@@ -10,6 +10,7 @@ export default function Sidebar() {
 
   const navItems = [
     { icon: "view_cozy", path: "/dashboard/products" },
+    { icon: "business", label: "פרופיל העסק", path: "/business-profile" },
     { icon: "settings", path: "/dashboard/settings" },
     { icon: "campaign", path: "/dashboard/future" },
   ];

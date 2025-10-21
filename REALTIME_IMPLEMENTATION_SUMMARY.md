@@ -106,7 +106,7 @@ console.log(`📡 Emitted product:updated for ${productId}`);
 
 ### Frontend Changes
 
-#### 1. Enhanced Socket Hook (`useProductSocket.ts`)
+#### 1. Enhanced Socket Hook (`useSocket.ts`)
 
 **Before:**
 - Basic connection
@@ -115,7 +115,7 @@ console.log(`📡 Emitted product:updated for ${productId}`);
 
 **After:**
 ```typescript
-export function useProductSocket() {
+export function useSocket() {
   const socket = io(API_URL, {
     auth: { token },
     reconnection: true,
@@ -303,7 +303,7 @@ startAppListening({
        │ 4. Socket event: product:updated
        ▼
 ┌──────────────────────────────────────┐
-│  Frontend (useProductSocket)         │
+│  Frontend (useSocket)         │
 │  - Receive event                     │
 │  - dispatch(updateProductLocally())  │
 └──────┬───────────────────────────────┘
@@ -401,7 +401,7 @@ If critical issues arise:
 1. **Disable Socket Hook** (frontend):
    ```typescript
    // In App.tsx:
-   // useProductSocket(); // COMMENT OUT
+   // useSocket(); // COMMENT OUT
    ```
 
 2. **Enable Polling** (temporary fallback):

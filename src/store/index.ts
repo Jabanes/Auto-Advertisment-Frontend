@@ -3,12 +3,14 @@ import { persistReducer, persistStore } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 import authReducer from "./slices/authSlice";
 import productReducer from "./slices/productSlice";
+import businessReducer from "./slices/businessSlice";
 import { listenerMiddleware } from "./listenerMiddleware";
 import { useDispatch, useSelector, type TypedUseSelectorHook } from "react-redux";
 
 const rootReducer = combineReducers({
   auth: authReducer,
   products: productReducer,
+  business: businessReducer,
 });
 
 const persistConfig = {
