@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch } from "../../store";
 import { performLogout } from "../../store/slices/authSlice";
 import { theme } from "../../styles/theme";
+import BusinessSwitcher from "./BusinessSwitcher";
 
 export default function Sidebar() {
   const navigate = useNavigate();
@@ -10,7 +11,7 @@ export default function Sidebar() {
 
   const navItems = [
     { icon: "view_cozy", path: "/dashboard/products" },
-    { icon: "business", label: "פרופיל העסק", path: "/business-profile" },
+    { icon: "business", label: "פרופיל העסק", path: "/dashboard/business" },
     { icon: "settings", path: "/dashboard/settings" },
     { icon: "campaign", path: "/dashboard/future" },
   ];
@@ -48,6 +49,7 @@ export default function Sidebar() {
         padding: `${theme.spacing.lg}px 0`,
         justifyContent: "space-between",
         height: "100vh",
+        zIndex: 1000, // Ensure sidebar is above content
       }}
     >
       <div style={{ color: theme.colors.primary, marginBottom: 40 }}>
@@ -96,8 +98,19 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Logout */}
-      <div>
+      {/* Business Switcher + Logout */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: theme.spacing.md,
+        }}
+      >
+        {/* Business Switcher */}
+        <BusinessSwitcher />
+
+        {/* Logout */}
         <span
           className="material-symbols-outlined"
           style={{

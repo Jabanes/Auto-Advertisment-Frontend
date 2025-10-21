@@ -17,10 +17,11 @@ export const authService = {
 
   /**
    * 📧 Email + Password Login
+   * Uses Firebase Client SDK for authentication, then sends ID token to backend
    */
-  async emailLogin(email: string, password: string): Promise<AuthResponse> {
+  async emailLogin(idToken: string): Promise<AuthResponse> {
     const { data } = await axios.post<AuthResponse>(`${API_URL}/auth/login`,
-      { email, password },
+      { idToken },
       { headers: { "Content-Type": "application/json" } }
     );
     return data;

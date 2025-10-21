@@ -10,7 +10,7 @@ import type { Product } from "../../types/product";
 export default function ProductCard({ product }: { product: Product }) {
   const dispatch = useAppDispatch();
   const token = useAppSelector((s) => s.auth.serverToken);
-  const businessId = useAppSelector((s) => s.auth.businesses[0]?.businessId);
+  const businessId = useAppSelector((s) => s.business.currentBusiness?.businessId);
 
   const N8N_URL = import.meta.env.VITE_N8N_URL;
   const [showMenu, setShowMenu] = useState(false);

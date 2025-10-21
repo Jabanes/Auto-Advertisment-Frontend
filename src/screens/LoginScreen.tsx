@@ -4,6 +4,8 @@ import { emailLogin } from "../store/slices/authSlice";
 import { useNavigate } from "react-router-dom";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import { theme } from "../styles/theme";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../config/firebase";
 
 export default function LoginScreen() {
   const dispatch = useAppDispatch();
@@ -15,8 +17,33 @@ export default function LoginScreen() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const action = await dispatch(emailLogin({ email, password }));
-    if (emailLogin.fulfilled.match(action)) navigate("/dashboard");
+    try {
+      // 1️⃣ Sign in with Firebase Client SDK
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      const idToken = await result.user.getIdToken();
+
+      // 2️⃣ Send ID token to backend
+      const action = await dispatch(emailLogin(idToken));
+      
+      if (emailLogin.fulfilled.match(action)) {
+        // Check if user has businesses
+        const { businesses } = action.payload;
+        
+        if (!businesses || businesses.length === 0) {
+          // No businesses - redirect to create mode
+          console.log("No businesses found, redirecting to create business...");
+          navigate("/dashboard/business?mode=create", { replace: true });
+        } else {
+          // Has businesses - go to dashboard
+          navigate("/dashboard", { replace: true });
+        }
+      } else {
+        alert(action.payload || "Login failed");
+      }
+    } catch (error: any) {
+      console.error("❌ Email login failed:", error);
+      alert(error.message || "Login failed. Please check your credentials.");
+    }
   };
 
   return (

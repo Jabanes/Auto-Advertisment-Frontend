@@ -23,11 +23,11 @@ const initialState: ProductState = {
 // 📦 FETCH ALL
 export const fetchProducts = createAsyncThunk<
   Product[],
-  string, // accessToken
+  { token: string; businessId?: string }, // accessToken and optional businessId
   { rejectValue: string }
->("products/fetchAll", async (token, { rejectWithValue }) => {
+>("products/fetchAll", async ({ token, businessId }, { rejectWithValue }) => {
   try {
-    return await productService.getAll(token);
+    return await productService.getAll(token, businessId);
   } catch (e: any) {
     return rejectWithValue(e?.response?.data?.message || "Failed to fetch products");
   }

@@ -5,14 +5,14 @@ import {
 } from "@reduxjs/toolkit";
 import { authService } from "../../services/authService";
 import type { AuthResponse, UserDTO } from "../../types/auth";
-import type { Business } from "../../types/business";
 import { RequestStatus } from "../../types/requestStatus";
 import { persistor } from "../index";
+import { setBusinesses } from "../slices/businessSlice";
+import { setProducts } from "../slices/productSlice";
 
 type AuthState = {
   user: UserDTO | null;
   serverToken: string | null;
-  businesses: Business[];
   status: RequestStatus;
   error?: string | null;
 };
@@ -20,7 +20,6 @@ type AuthState = {
 const initialState: AuthState = {
   user: null,
   serverToken: null,
-  businesses: [],
   status: RequestStatus.IDLE,
   error: null,
 };
@@ -41,11 +40,11 @@ export const loginWithGoogleIdToken = createAsyncThunk<
 // 📧 Email login
 export const emailLogin = createAsyncThunk<
   AuthResponse,
-  { email: string; password: string },
+  string, // Just the idToken
   { rejectValue: string }
->("auth/emailLogin", async (body, { rejectWithValue }) => {
+>("auth/emailLogin", async (idToken, { rejectWithValue }) => {
   try {
-    return await authService.emailLogin(body.email, body.password);
+    return await authService.emailLogin(idToken);
   } catch (e: any) {
     return rejectWithValue(e?.response?.data?.message || "Login failed");
   }
@@ -78,7 +77,6 @@ const authSlice = createSlice({
     clearAuth(state) {
       state.user = null;
       state.serverToken = null;
-      state.businesses = [];
       state.status = RequestStatus.IDLE;
       state.error = null;
     },
@@ -86,20 +84,8 @@ const authSlice = createSlice({
     logoutSuccess(state) {
       state.user = null;
       state.serverToken = null;
-      state.businesses = [];
       state.status = RequestStatus.IDLE;
       state.error = null;
-    },
-
-    // Socket event handler: business:created
-    addBusinessLocally(state, action: PayloadAction<Business>) {
-      // Avoid duplicates
-      const exists = state.businesses.some(
-        (b) => b.businessId === action.payload.businessId
-      );
-      if (!exists) {
-        state.businesses.push(action.payload);
-      }
     },
   },
   extraReducers: (builder) => {
@@ -110,17 +96,25 @@ const authSlice = createSlice({
         s.error = null;
       })
       .addCase(loginWithGoogleIdToken.fulfilled, (s, a: PayloadAction<AuthResponse>) => {
-        console.log("Auth Slice - Google login fulfilled:", (a.payload as any).accessToken );
+        console.log("Auth Slice - Google login fulfilled:", a.payload);
+
         s.status = RequestStatus.SUCCEEDED;
         s.user = a.payload.user;
-        // 🧩 FIX: support idToken as fallback
         s.serverToken =
           a.payload.serverToken ||
           (a.payload as any).token ||
           (a.payload as any).accessToken ||
           (a.payload as any).idToken ||
           null;
-        s.businesses = a.payload.businesses || [];
+
+        // ✅ Hydrate other slices
+        const { businesses, products } = a.payload;
+        if (businesses?.length) {
+          window.store?.dispatch(setBusinesses(businesses)); // assuming window.store = configured redux store
+        }
+        if (products?.length) {
+          window.store?.dispatch(setProducts(products));
+        }
       })
       .addCase(loginWithGoogleIdToken.rejected, (s, a) => {
         s.status = RequestStatus.FAILED;
@@ -141,7 +135,6 @@ const authSlice = createSlice({
           (a.payload as any).accessToken ||
           (a.payload as any).idToken ||
           null;
-        s.businesses = a.payload.businesses || [];
       })
       .addCase(emailLogin.rejected, (s, a) => {
         s.status = RequestStatus.FAILED;
@@ -150,5 +143,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearAuth, logoutSuccess, addBusinessLocally } = authSlice.actions;
+export const { clearAuth, logoutSuccess } = authSlice.actions;
 export default authSlice.reducer;

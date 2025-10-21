@@ -5,14 +5,16 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 export const productService = {
     /**
-     * 🧩 Fetch all products for the authenticated user
+     * 🧩 Fetch all products for the authenticated user (or for a specific business)
      */
-    async getAll(accessToken: string): Promise<Product[]> {
+    async getAll(accessToken: string, businessId?: string): Promise<Product[]> {
+        const params = businessId ? { businessId } : {};
         const { data } = await axios.get<{ products: Product[] }>(`${API_URL}/products`,
             {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                 },
+                params,
             }
         );
         return data.products;
