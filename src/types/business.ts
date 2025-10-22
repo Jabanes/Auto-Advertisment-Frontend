@@ -36,7 +36,9 @@ export interface Business {
   languages?: string[]; // e.g. ["hebrew"]
   businessGoal?: "sale" | "brand_awareness" | "lead_generation" | null;
   slogan?: string | null;
-  
+  instagram?: string | null;
+  facebook?: string | null;
+  tiktok?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
