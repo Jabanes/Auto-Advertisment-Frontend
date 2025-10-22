@@ -22,7 +22,18 @@ export default function GoogleSignInButton() {
       // 3️⃣ Handle success or failure
       if (loginWithGoogleIdToken.fulfilled.match(action)) {
         console.log("✅ Google Sign-In success:", action.payload);
-        navigate("/dashboard", { replace: true });
+        
+        // Check if user has businesses
+        const { businesses } = action.payload;
+        
+        if (!businesses || businesses.length === 0) {
+          // No businesses - redirect to create mode
+          console.log("No businesses found, redirecting to create business...");
+          navigate("/dashboard/business?mode=create", { replace: true });
+        } else {
+          // Has businesses - go to dashboard
+          navigate("/dashboard", { replace: true });
+        }
       } else {
         alert(action.payload || "Google login failed");
       }

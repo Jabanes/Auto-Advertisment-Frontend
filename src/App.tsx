@@ -4,22 +4,28 @@ import DashboardScreen from "./screens/Dashboard/DashboardScreen";
 import ProductsScreen from "./screens/Dashboard/ProductsScreen";
 import SettingsScreen from "./screens/Dashboard/SettingsScreen";
 import FutureScreen from "./screens/Dashboard/FutureScreen";
-import { useProductSocket } from "./hooks/useProductSocket";
+import BusinessProfileScreen from "./components/BusinessProfile"
+import ProtectedRoute from "./navigation/ProtectedRoute";
+import { useSocket } from "./hooks/useSocket";
 
 export default function App() {
-  useProductSocket();
+  useSocket();
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" />} />
       <Route path="/login" element={<LoginScreen />} />
+      <Route path="/" element={<Navigate to="/login" />} />
 
-      {/* Nested dashboard */}
-      <Route path="/dashboard" element={<DashboardScreen />}>
-        <Route index element={<ProductsScreen />} />
-        <Route path="products" element={<ProductsScreen />} />
-        <Route path="settings" element={<SettingsScreen />} />
-        <Route path="future" element={<FutureScreen />} />
+      {/* Protected Routes */}
+      <Route element={<ProtectedRoute />}>
+       
+        <Route path="/dashboard" element={<DashboardScreen />}>
+          <Route index element={<ProductsScreen />} />
+          <Route path="products" element={<ProductsScreen />} />
+          <Route path="settings" element={<SettingsScreen />} />
+          <Route path="future" element={<FutureScreen />} />
+          <Route path="/dashboard/business" element={<BusinessProfileScreen />} />
+        </Route>
       </Route>
     </Routes>
   );

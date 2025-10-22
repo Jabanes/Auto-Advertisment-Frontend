@@ -72,6 +72,8 @@ export const shadows = {
 export const typography = {
   fontFamily: {
     display: `"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`,
+    body: `"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`, // 👈 added
+
     regular: "Inter_400Regular",
     medium: "Inter_500Medium",
     bold: "Inter_700Bold",

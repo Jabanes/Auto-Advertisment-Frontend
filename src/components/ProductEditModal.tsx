@@ -22,7 +22,7 @@ const EMPTY_PRODUCT: Partial<Product> = {
 export default function ProductEditModal({ mode, product, onClose }: Props) {
   const dispatch = useAppDispatch();
   const token = useAppSelector((s) => s.auth.serverToken);
-  const businessId = useAppSelector((s) => s.auth.businesses[0]?.businessId);
+  const businessId = useAppSelector((s) => s.business.currentBusiness?.businessId);
 
   const [form, setForm] = useState<Partial<Product>>(
     mode === "edit" ? product! : EMPTY_PRODUCT

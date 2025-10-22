@@ -184,7 +184,7 @@ pending → processing → enriched → posted
 
 ### Socket Events
 
-- Handle events in `useProductSocket` hook only
+- Handle events in `useSocket` hook only
 - Dispatch Redux actions to update state
 - Keep event handlers idempotent (can receive duplicates)
 
