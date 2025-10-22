@@ -10,8 +10,8 @@ export default function Sidebar() {
   const dispatch = useAppDispatch(); // ✅ typed dispatch
 
   const navItems = [
-    { icon: "view_cozy", path: "/dashboard/products" },
     { icon: "business", label: "פרופיל העסק", path: "/dashboard/business" },
+    { icon: "view_cozy", path: "/dashboard/products" },
     { icon: "settings", path: "/dashboard/settings" },
     { icon: "campaign", path: "/dashboard/future" },
   ];

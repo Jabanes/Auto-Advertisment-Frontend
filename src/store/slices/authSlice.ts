@@ -24,14 +24,20 @@ const initialState: AuthState = {
   error: null,
 };
 
-// 🔐 Google login
 export const loginWithGoogleIdToken = createAsyncThunk<
   AuthResponse,
   string,
   { rejectValue: string }
->("auth/loginWithGoogleIdToken", async (idToken, { rejectWithValue }) => {
+>("auth/loginWithGoogleIdToken", async (idToken, { rejectWithValue, dispatch }) => {
   try {
-    return await authService.googleSignInWithIdToken(idToken);
+    const response = await authService.googleSignInWithIdToken(idToken);
+
+    // ✅ Dispatch other slices *outside* reducer
+    const { businesses, products } = response;
+    if (businesses?.length) dispatch(setBusinesses(businesses));
+    if (products?.length) dispatch(setProducts(products));
+
+    return response;
   } catch (e: any) {
     return rejectWithValue(e?.response?.data?.message || "Google login failed");
   }
@@ -96,8 +102,6 @@ const authSlice = createSlice({
         s.error = null;
       })
       .addCase(loginWithGoogleIdToken.fulfilled, (s, a: PayloadAction<AuthResponse>) => {
-        console.log("Auth Slice - Google login fulfilled:", a.payload);
-
         s.status = RequestStatus.SUCCEEDED;
         s.user = a.payload.user;
         s.serverToken =
@@ -106,15 +110,6 @@ const authSlice = createSlice({
           (a.payload as any).accessToken ||
           (a.payload as any).idToken ||
           null;
-
-        // ✅ Hydrate other slices
-        const { businesses, products } = a.payload;
-        if (businesses?.length) {
-          window.store?.dispatch(setBusinesses(businesses)); // assuming window.store = configured redux store
-        }
-        if (products?.length) {
-          window.store?.dispatch(setProducts(products));
-        }
       })
       .addCase(loginWithGoogleIdToken.rejected, (s, a) => {
         s.status = RequestStatus.FAILED;

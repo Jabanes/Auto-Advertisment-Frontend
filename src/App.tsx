@@ -4,7 +4,7 @@ import DashboardScreen from "./screens/Dashboard/DashboardScreen";
 import ProductsScreen from "./screens/Dashboard/ProductsScreen";
 import SettingsScreen from "./screens/Dashboard/SettingsScreen";
 import FutureScreen from "./screens/Dashboard/FutureScreen";
-import BusinessProfileScreen from "./components/businessProfile"
+import BusinessProfileScreen from "./components/BusinessProfile"
 import ProtectedRoute from "./navigation/ProtectedRoute";
 import { useSocket } from "./hooks/useSocket";
 
@@ -18,12 +18,13 @@ export default function App() {
 
       {/* Protected Routes */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/business-profile" element={<BusinessProfileScreen />} />
+       
         <Route path="/dashboard" element={<DashboardScreen />}>
           <Route index element={<ProductsScreen />} />
           <Route path="products" element={<ProductsScreen />} />
           <Route path="settings" element={<SettingsScreen />} />
           <Route path="future" element={<FutureScreen />} />
+          <Route path="/dashboard/business" element={<BusinessProfileScreen />} />
         </Route>
       </Route>
     </Routes>
