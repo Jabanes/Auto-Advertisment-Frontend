@@ -9,16 +9,25 @@ import {
 } from "../../store/slices/businessSlice";
 import { theme } from "../../styles/theme";
 import type { Business } from "../../types/business";
+import { fetchAllBusinesses, selectBusinessStatus } from "../../store/slices/businessSlice";
+import { deleteBusiness } from "../../store/slices/businessSlice";
 
 
 export default function BusinessSwitcher() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+
+  const token = useAppSelector((s) => s.auth.serverToken);
+  const status = useAppSelector(selectBusinessStatus);
+
+
   const currentBusiness = useAppSelector(selectCurrentBusiness);
   const currentBusinessId = useAppSelector(selectCurrentBusinessId);
   const businesses = useAppSelector(selectBusinesses) as Business[];
   const [isOpen, setIsOpen] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; businessId: string } | null>(null);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -38,6 +47,37 @@ export default function BusinessSwitcher() {
     };
   }, [isOpen]);
 
+
+  // 🧠 Ensure businesses are loaded after login or refresh
+  useEffect(() => {
+    if (status === "IDLE" && (!businesses || businesses.length === 0) && token) {
+      console.log("🔄 Refetching businesses after rehydrate...");
+      dispatch(fetchAllBusinesses(token));
+    }
+  }, [status, businesses, token, dispatch]);
+
+
+  const handleRightClick = (e: React.MouseEvent, businessId: string) => {
+    e.preventDefault();
+    setContextMenu({ x: e.pageX, y: e.pageY, businessId });
+  };
+
+  const handleDeleteBusiness = async (businessId: string) => {
+    if (!token) return alert("Missing auth token");
+    const confirmed = window.confirm("האם אתה בטוח שברצונך למחוק את העסק הזה לצמיתות?");
+    if (!confirmed) return;
+
+    try {
+      await dispatch(deleteBusiness({ token, businessId })).unwrap();
+      alert("העסק נמחק בהצלחה");
+      setContextMenu(null);
+    } catch (err: any) {
+      console.error("❌ Failed to delete business:", err);
+      alert("שגיאה במחיקת העסק");
+    }
+  };
+
+
   const handleBusinessSelect = async (businessId: string) => {
     if (businessId === currentBusinessId) {
       setIsOpen(false);
@@ -47,7 +87,7 @@ export default function BusinessSwitcher() {
     setIsSwitching(true);
     // Switch business - listener middleware will automatically refetch products
     dispatch(setCurrentBusinessId(businessId));
-    
+
     // Small delay to show loading state before closing dropdown
     setTimeout(() => {
       setIsOpen(false);
@@ -190,91 +230,136 @@ export default function BusinessSwitcher() {
               business
             </span>
           )}
-        
-        {/* Dropdown indicator */}
-        <span
-          className="material-symbols-outlined"
-          style={{
-            position: "absolute",
-            bottom: -2,
-            right: -2,
-            fontSize: 16,
-            color: theme.colors.primary,
-            backgroundColor: theme.colors.surfaceLight,
-            borderRadius: theme.radii.full,
-            padding: 2,
-          }}
-        >
-          {isOpen ? "expand_less" : "expand_more"}
-        </span>
-      </div>
 
-      {/* Dropdown Menu */}
-      {isOpen && (
-        <div style={dropdownStyle}>
-          {/* Header */}
-          <div
+          {/* Dropdown indicator */}
+          <span
+            className="material-symbols-outlined"
             style={{
-              padding: theme.spacing.md,
-              borderBottom: `2px solid ${theme.colors.borderLight}`,
-              fontWeight: 700,
-              color: theme.colors.textDark,
-              fontSize: 14,
+              position: "absolute",
+              bottom: -2,
+              right: -2,
+              fontSize: 16,
+              color: theme.colors.primary,
+              backgroundColor: theme.colors.surfaceLight,
+              borderRadius: theme.radii.full,
+              padding: 2,
             }}
           >
-            עסקים שלי
-          </div>
+            {isOpen ? "expand_less" : "expand_more"}
+          </span>
+        </div>
 
-          {/* Business List */}
-          {businesses.map((business) => {
-            const isActive = currentBusiness?.businessId === business.businessId;
-            return (
-              <div
-                key={business.businessId}
-                style={{
-                  ...businessItemStyle,
-                  backgroundColor: isActive
-                    ? `${theme.colors.primary}10`
-                    : "transparent",
-                }}
-                onClick={() => handleBusinessSelect(business.businessId)}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLElement).style.backgroundColor =
-                      theme.colors.overlayLight;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
-                  }
-                }}
-              >
-                {/* Business Logo */}
+        {/* Dropdown Menu */}
+        {isOpen && (
+          <div style={dropdownStyle}>
+            {/* Header */}
+            <div
+              style={{
+                padding: theme.spacing.md,
+                borderBottom: `2px solid ${theme.colors.borderLight}`,
+                fontWeight: 700,
+                color: theme.colors.textDark,
+                fontSize: 14,
+              }}
+            >
+              עסקים שלי
+            </div>
+
+            {/* Business List */}
+            {businesses.map((business) => {
+              const isActive = currentBusiness?.businessId === business.businessId;
+              return (
                 <div
+                  key={business.businessId}
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: theme.radii.md,
-                    backgroundColor: `${theme.colors.primary}20`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
+                    ...businessItemStyle,
+                    backgroundColor: isActive
+                      ? `${theme.colors.primary}10`
+                      : "transparent",
+                  }}
+                  onClick={() => handleBusinessSelect(business.businessId)}
+                  onContextMenu={(e) => handleRightClick(e, business.businessId)}
+
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLElement).style.backgroundColor =
+                        theme.colors.overlayLight;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                    }
                   }}
                 >
-                  {business.logoUrl ? (
-                    <img
-                      src={business.logoUrl}
-                      alt={business.name}
+                  {/* Business Logo */}
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: theme.radii.md,
+                      backgroundColor: `${theme.colors.primary}20`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {business.logoUrl ? (
+                      <img
+                        src={business.logoUrl}
+                        alt={business.name}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          borderRadius: theme.radii.md,
+                        }}
+                      />
+                    ) : (
+                      <span
+                        className="material-symbols-outlined"
+                        style={{
+                          fontSize: 20,
+                          color: theme.colors.primary,
+                        }}
+                      >
+                        business
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Business Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
                       style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        borderRadius: theme.radii.md,
+                        fontWeight: 600,
+                        color: theme.colors.textDark,
+                        fontSize: 14,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                       }}
-                    />
-                  ) : (
+                    >
+                      {business.name}
+                    </div>
+                    {business.description && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: theme.colors.textMuted,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {business.description}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Active Indicator */}
+                  {isActive && (
                     <span
                       className="material-symbols-outlined"
                       style={{
@@ -282,81 +367,66 @@ export default function BusinessSwitcher() {
                         color: theme.colors.primary,
                       }}
                     >
-                      business
+                      check_circle
                     </span>
                   )}
                 </div>
+              );
+            })}
 
-                {/* Business Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontWeight: 600,
-                      color: theme.colors.textDark,
-                      fontSize: 14,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {business.name}
-                  </div>
-                  {business.description && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: theme.colors.textMuted,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {business.description}
-                    </div>
-                  )}
-                </div>
-
-                {/* Active Indicator */}
-                {isActive && (
-                  <span
-                    className="material-symbols-outlined"
-                    style={{
-                      fontSize: 20,
-                      color: theme.colors.primary,
-                    }}
-                  >
-                    check_circle
-                  </span>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Add Business Button */}
-          <div
-            style={addButtonStyle}
-            onClick={handleAddBusiness}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.backgroundColor =
-                `${theme.colors.primary}10`;
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
-            }}
-          >
-            <span
-              className="material-symbols-outlined"
-              style={{
-                fontSize: 24,
+            {/* Add Business Button */}
+            <div
+              style={addButtonStyle}
+              onClick={handleAddBusiness}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.backgroundColor =
+                  `${theme.colors.primary}10`;
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
               }}
             >
-              add_circle
-            </span>
-            <span>הוסף עסק חדש</span>
+              <span
+                className="material-symbols-outlined"
+                style={{
+                  fontSize: 24,
+                }}
+              >
+                add_circle
+              </span>
+              <span>הוסף עסק חדש</span>
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* 🗑️ Context Menu Overlay */}
+      {contextMenu && (
+        <div
+          style={{
+            position: "fixed",
+            top: contextMenu.y,
+            left: contextMenu.x,
+            backgroundColor: theme.colors.surfaceLight,
+            border: `1px solid ${theme.colors.borderLight}`,
+            borderRadius: theme.radii.md,
+            boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+            padding: "8px 12px",
+            zIndex: 100000,
+            cursor: "pointer",
+          }}
+          onClick={() => handleDeleteBusiness(contextMenu.businessId)}
+          onMouseLeave={() => setContextMenu(null)}
+        >
+          <span
+            className="material-symbols-outlined"
+            style={{ fontSize: 18, color: theme.colors.error, marginRight: 6 }}
+          >
+            delete
+          </span>
+          <span style={{ color: theme.colors.error, fontWeight: 600 }}>מחק עסק</span>
         </div>
       )}
-      </div>
     </>
   );
 }

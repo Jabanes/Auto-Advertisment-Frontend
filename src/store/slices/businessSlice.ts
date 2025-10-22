@@ -80,18 +80,38 @@ export const fetchAllBusinesses = createAsyncThunk(
     }
 );
 
+
+// 🗑️ DELETE BUSINESS (API)
+export const deleteBusiness = createAsyncThunk(
+    "business/delete",
+    async (
+        { token, businessId }: { token: string; businessId: string },
+        { rejectWithValue }
+    ) => {
+        try {
+            await businessService.deleteBusiness(token, businessId);
+            return businessId;
+        } catch (err: any) {
+            return rejectWithValue(err.message);
+        }
+    }
+);
+
+
 const businessSlice = createSlice({
     name: "business",
     initialState,
     reducers: {
-        // Hydrates businesses from login payload
         setBusinesses: (state, action: PayloadAction<Business[]>) => {
             state.businesses = action.payload;
             state.status = RequestStatus.SUCCEEDED;
-            // Auto-select first business if none selected
-            if (!state.currentBusinessId && action.payload.length > 0) {
-                state.currentBusinessId = action.payload[0].businessId;
+
+            const current = action.payload.find(b => b.businessId === state.currentBusinessId);
+            if (current) {
+                state.currentBusiness = current;
+            } else if (action.payload.length > 0) {
                 state.currentBusiness = action.payload[0];
+                state.currentBusinessId = action.payload[0].businessId;
             }
         },
 
@@ -120,7 +140,7 @@ const businessSlice = createSlice({
                 console.warn(`Business ${action.payload.businessId} not found locally, adding it`);
                 state.businesses.push(action.payload);
             }
-            
+
             // Update current business if it's the same one
             if (state.currentBusiness?.businessId === action.payload.businessId) {
                 state.currentBusiness = action.payload;
@@ -186,7 +206,7 @@ const businessSlice = createSlice({
                 state.status = RequestStatus.FAILED;
                 state.error = action.payload as string;
             })
-            
+
             // UPDATE
             .addCase(updateBusiness.pending, (state) => {
                 state.status = RequestStatus.LOADING;
@@ -208,7 +228,7 @@ const businessSlice = createSlice({
                 state.status = RequestStatus.FAILED;
                 state.error = action.payload as string;
             })
-            
+
             // FETCH ONE
             .addCase(fetchBusiness.pending, (state) => {
                 state.status = RequestStatus.LOADING;
@@ -231,24 +251,53 @@ const businessSlice = createSlice({
                 state.status = RequestStatus.FAILED;
                 state.error = action.payload as string;
             })
-            
+
             // FETCH ALL
             .addCase(fetchAllBusinesses.pending, (state) => {
                 state.status = RequestStatus.LOADING;
             })
             .addCase(fetchAllBusinesses.fulfilled, (state, action) => {
                 state.status = RequestStatus.SUCCEEDED;
-                state.businesses = action.payload;
+                // ✅ Only replace if payload has items or state is empty
+                if (action.payload.length > 0 || state.businesses.length === 0) {
+                    state.businesses = action.payload;
+                } else {
+                    console.warn("⚠️ Ignored empty fetchAllBusinesses payload to avoid overwriting existing data.");
+                }
+
                 // Auto-select first if none selected
-                if (!state.currentBusinessId && action.payload.length > 0) {
-                    state.currentBusinessId = action.payload[0].businessId;
-                    state.currentBusiness = action.payload[0];
+                if (!state.currentBusinessId && state.businesses.length > 0) {
+                    state.currentBusinessId = state.businesses[0].businessId;
+                    state.currentBusiness = state.businesses[0];
                 }
             })
             .addCase(fetchAllBusinesses.rejected, (state, action) => {
                 state.status = RequestStatus.FAILED;
                 state.error = action.payload as string;
+            })
+            // DELETE
+            .addCase(deleteBusiness.pending, (state) => {
+                state.status = RequestStatus.LOADING;
+            })
+            .addCase(deleteBusiness.fulfilled, (state, action) => {
+                state.status = RequestStatus.SUCCEEDED;
+                const deletedId = action.payload;
+                state.businesses = state.businesses.filter(b => b.businessId !== deletedId);
+
+                if (state.currentBusinessId === deletedId) {
+                    state.currentBusinessId = null;
+                    state.currentBusiness = null;
+                    if (state.businesses.length > 0) {
+                        state.currentBusinessId = state.businesses[0].businessId;
+                        state.currentBusiness = state.businesses[0];
+                    }
+                }
+            })
+            .addCase(deleteBusiness.rejected, (state, action) => {
+                state.status = RequestStatus.FAILED;
+                state.error = action.payload as string;
             });
+
     },
 });
 

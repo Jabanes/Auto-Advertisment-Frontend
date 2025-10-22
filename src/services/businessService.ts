@@ -9,6 +9,7 @@ export const businessService = {
   getAllBusinesses,
   updateBusiness,
   createBusiness,
+  deleteBusiness,
 };
 
 async function getBusiness(accessToken: string, businessId: string): Promise<Business> {
@@ -57,4 +58,11 @@ async function createBusiness(accessToken: string, payload: Partial<Business>): 
     }
   );
   return data.business;
+}
+
+
+async function deleteBusiness(accessToken: string, businessId: string): Promise<void> {
+  await axios.delete(`${API_URL}/businesses/${businessId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 }

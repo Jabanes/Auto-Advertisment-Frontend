@@ -19,30 +19,37 @@ export type AppStartListening = typeof listenerMiddleware.startListening;
 export const startAppListening =
   listenerMiddleware.startListening as AppStartListening;
 
-// 🚀 Login: Hydrate products and businesses from auth response
+// 🚀 Login: Hydrate businesses + products safely and avoid overwriting good data
 startAppListening({
   matcher: isAnyOf(loginWithGoogleIdToken.fulfilled, emailLogin.fulfilled),
-  effect: async (action: PayloadAction<AuthResponse>, { dispatch }) => {
+  effect: async (action: PayloadAction<AuthResponse>, { dispatch, getState }) => {
     console.log("[Listener] Login successful, hydrating data...");
 
     const { products, businesses, serverToken } = action.payload;
+    const state = getState() as RootState;
 
-    // Hydrate businesses
-    if (businesses && businesses.length > 0) {
+    // --- Businesses ---
+    if (businesses?.length) {
       dispatch(setBusinesses(businesses));
       console.log(`[Listener] Hydrated ${businesses.length} businesses from login payload.`);
     } else if (serverToken) {
-      dispatch(fetchAllBusinesses(serverToken));
-      console.log("[Listener] No businesses in payload, fetching from API...");
+      const existingCount = state.business.businesses.length;
+      if (existingCount === 0) {
+        console.log("[Listener] No businesses in payload, fetching from API...");
+        // ✅ small delay to let Redux Persist rehydrate first
+        setTimeout(() => dispatch(fetchAllBusinesses(serverToken)), 400);
+      } else {
+        console.log("[Listener] Skipping fetchAllBusinesses – already have businesses in state.");
+      }
     }
 
-    // Hydrate products
-    if (products && products.length > 0) {
+    // --- Products ---
+    if (products?.length) {
       dispatch(setProducts(products));
       console.log(`[Listener] Hydrated ${products.length} products from login payload.`);
     } else if (serverToken) {
-      dispatch(fetchProducts({ token: serverToken }));
       console.log("[Listener] No products in payload, fetching from API...");
+      dispatch(fetchProducts({ token: serverToken }));
     }
   },
 });
@@ -69,7 +76,7 @@ startAppListening({
 
     if (token) {
       console.log(`[Listener] Business switched to ${businessId}, rehydrating data...`);
-      
+
       // Fetch fresh business details
       try {
         await dispatch(fetchBusiness({ token, businessId })).unwrap();
