@@ -134,7 +134,7 @@ export default function LoginScreen() {
           <div style={{ marginBottom: theme.spacing.md }}>
             <input
               type="email"
-              placeholder="Email Address"
+              placeholder="מייל"
               required
               autoComplete="email"
               value={email}
@@ -155,7 +155,7 @@ export default function LoginScreen() {
           <div style={{ marginBottom: theme.spacing.lg }}>
             <input
               type="password"
-              placeholder="Password"
+              placeholder="סיסמה חזקה"
               required
               autoComplete="current-password"
               value={password}

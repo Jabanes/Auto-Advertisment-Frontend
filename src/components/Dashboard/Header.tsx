@@ -25,7 +25,7 @@ export default function Header() {
           color: theme.colors.textDark,
         }}
       >
-        Auto-Advertisement
+        פרסום אוטומטי
       </h1>
 
       <div style={{ display: "flex", alignItems: "center", gap: theme.spacing.lg }}>
