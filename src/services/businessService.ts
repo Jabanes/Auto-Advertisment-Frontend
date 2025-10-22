@@ -10,6 +10,7 @@ export const businessService = {
   updateBusiness,
   createBusiness,
   deleteBusiness,
+  uploadLogo,
 };
 
 async function getBusiness(accessToken: string, businessId: string): Promise<Business> {
@@ -65,4 +66,22 @@ async function deleteBusiness(accessToken: string, businessId: string): Promise<
   await axios.delete(`${API_URL}/businesses/${businessId}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+}
+
+async function uploadLogo(accessToken: string, businessId: string, file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const { data } = await axios.post<{ success: boolean; url: string }>(
+    `${API_URL}/businesses/upload/${businessId}/logo`,
+    formData,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return data.url;
 }

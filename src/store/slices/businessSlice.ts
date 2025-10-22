@@ -98,6 +98,22 @@ export const deleteBusiness = createAsyncThunk(
 );
 
 
+export const uploadBusinessLogo = createAsyncThunk(
+    "business/uploadLogo",
+    async (
+        { token, businessId, file }: { token: string; businessId: string; file: File },
+        { rejectWithValue }
+    ) => {
+        try {
+            const url = await businessService.uploadLogo(token, businessId, file);
+            return { businessId, url };
+        } catch (err: any) {
+            return rejectWithValue(err.message);
+        }
+    }
+);
+
+
 const businessSlice = createSlice({
     name: "business",
     initialState,
@@ -296,8 +312,26 @@ const businessSlice = createSlice({
             .addCase(deleteBusiness.rejected, (state, action) => {
                 state.status = RequestStatus.FAILED;
                 state.error = action.payload as string;
-            });
+            })
+            .addCase(uploadBusinessLogo.pending, (state) => {
+                state.status = RequestStatus.LOADING;
+            })
+            .addCase(uploadBusinessLogo.fulfilled, (state, action) => {
+                state.status = RequestStatus.SUCCEEDED;
+                const { businessId, url } = action.payload;
 
+                const idx = state.businesses.findIndex((b) => b.businessId === businessId);
+                if (idx !== -1) {
+                    state.businesses[idx].logoUrl = url;
+                }
+                if (state.currentBusinessId === businessId && state.currentBusiness) {
+                    state.currentBusiness.logoUrl = url;
+                }
+            })
+            .addCase(uploadBusinessLogo.rejected, (state, action) => {
+                state.status = RequestStatus.FAILED;
+                state.error = action.payload as string;
+            });
     },
 });
 
