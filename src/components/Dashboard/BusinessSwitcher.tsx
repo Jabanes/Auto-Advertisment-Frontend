@@ -8,13 +8,15 @@ import {
   selectCurrentBusinessId,
 } from "../../store/slices/businessSlice";
 import { theme } from "../../styles/theme";
+import type { Business } from "../../types/business";
+
 
 export default function BusinessSwitcher() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const currentBusiness = useAppSelector(selectCurrentBusiness);
   const currentBusinessId = useAppSelector(selectCurrentBusinessId);
-  const businesses = useAppSelector(selectBusinesses);
+  const businesses = useAppSelector(selectBusinesses) as Business[];
   const [isOpen, setIsOpen] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
