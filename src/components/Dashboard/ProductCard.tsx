@@ -3,6 +3,8 @@ import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
   deleteProduct,
   setProductStatus,
+  updateProductLocally,
+  
 } from "../../store/slices/productSlice";
 import { theme } from "../../styles/theme";
 import type { Product } from "../../types/product";
@@ -12,10 +14,49 @@ export default function ProductCard({ product }: { product: Product }) {
   const token = useAppSelector((s) => s.auth.serverToken);
   const businessId = useAppSelector((s) => s.business.currentBusiness?.businessId);
   const business = useAppSelector((s) => s.business.currentBusiness);
-
+  const API_URL = import.meta.env.VITE_API_URL;
   const N8N_URL = import.meta.env.VITE_N8N_URL;
+
+
+   // 🧪 Toggle this flag to switch between environments
+  const IS_TESTING = true; // change to true when testing locally
+
+  // ✅ Choose endpoint based on mode
+  const N8N_WEBHOOK = IS_TESTING
+    ? "https://n8n.srv1040889.hstgr.cloud/webhook-test/enrich-product" // test webhook
+    : `${N8N_URL}/webhook/enrich-product`; // production webhook
+
   const [showMenu, setShowMenu] = useState(false);
 
+   useEffect(() => {
+    if (product.status === "processing") {
+      console.log("⏳ Polling for product status...");
+
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(
+            `${API_URL}/products?businessId=${product.businessId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          const data = await res.json();
+          const updated = data.products.find((p) => p.id === product.id);
+
+          if (updated && updated.status !== "processing") {
+            console.log("✅ Product updated via polling:", updated.status);
+            dispatch(updateProductLocally(updated));
+            clearInterval(interval);
+          }
+        } catch (err) {
+          console.error("⚠️ Polling error:", err);
+        }
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }
+  }, [product.status, product.businessId, product.id, token, dispatch, API_URL]);
+  
   // ✅ Inject CSS keyframes once (only on first mount)
   useEffect(() => {
     const existingStyle = document.getElementById("product-card-animations");
@@ -59,11 +100,18 @@ export default function ProductCard({ product }: { product: Product }) {
     e.stopPropagation();
     if (!token || !businessId) return;
 
-    if (isProcessing) return;
+    console.log(
+      `[PRODUCT] Starting generation for ${product?.id} | Status: ${product?.status}`
+    );
 
-    console.log(`🚀 Triggering enrichment for product ${product.id}`);
+    if (isProcessing) {
+      console.log("[PRODUCT] ⚠️ Generation already in progress. Ignoring.");
+      return;
+    }
+
     dispatch(setProductStatus({ id: product.id, status: "processing" }));
-
+    console.log("[PRODUCT] ✅ Optimistic status set to 'processing'");
+    
     try {
       const API_URL = import.meta.env.VITE_API_URL;
 
@@ -77,10 +125,12 @@ export default function ProductCard({ product }: { product: Product }) {
         body: JSON.stringify({ status: "processing" }),
       });
 
-      console.log("✅ Status updated to processing in DB");
+      console.log("[PRODUCT] ✅ Status updated to 'processing' in DB via PATCH");
 
       // 2️⃣ Trigger n8n (fire & forget, handle empty response safely)
-      await fetch(`${N8N_URL}/webhook/enrich-product`, {
+      console.log("📡 [PRODUCT] Triggering n8n webhook...");
+      // fetch(`${N8N_URL}/webhook/enrich-product`, {
+      fetch(N8N_WEBHOOK, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -95,14 +145,14 @@ export default function ProductCard({ product }: { product: Product }) {
           return text ? JSON.parse(text) : {};
         })
         .then((data) => {
-          console.log("✅ n8n workflow triggered successfully:", data);
+          console.log("✅ [PRODUCT] n8n workflow triggered successfully:", data);
         })
         .catch((err) => {
-          console.error("❌ Workflow trigger failed:", err);
+          console.error("❌ [PRODUCT] n8n workflow trigger failed:", err);
           dispatch(setProductStatus({ id: product.id, status: "failed" }));
         });
     } catch (err) {
-      console.error("❌ Failed to update status:", err);
+      console.error("❌ [PRODUCT] Failed to update status in DB:", err);
       dispatch(setProductStatus({ id: product.id, status: "failed" }));
     }
 

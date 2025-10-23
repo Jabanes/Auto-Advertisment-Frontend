@@ -1,12 +1,12 @@
 // src/hooks/useSocket.ts
 
 import { useEffect, useRef } from "react";
-import { io, Socket } from "socket.io-client";
+import { type Socket, io } from "socket.io-client";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
-  updateProductLocally,
   addProductLocally,
   removeProductLocally,
+  updateProductLocally,
 } from "../store/slices/productSlice";
 import { addBusinessLocally, updateBusinessLocally, removeBusinessLocally } from "../store/slices/businessSlice";
 
@@ -19,13 +19,19 @@ export function useSocket() {
 
   useEffect(() => {
     if (!token || !uid) {
-      console.log("⚠️ No auth token or uid, skipping socket connection");
+      console.log("⚠️ [SOCKET] No auth token or UID, skipping connection.");
       return;
     }
     if (socketRef.current?.connected) {
-      console.log("🔌 Socket already connected");
+      console.log("🔌 [SOCKET] Connection already active.");
       return;
     }
+
+    console.log(
+      `[SOCKET] Attempting to connect... (UID: ${uid}, Token: ${
+        token ? "present" : "absent"
+      })`
+    );
 
     const socket = io(API_URL, {
       transports: ["websocket", "polling"],
@@ -33,34 +39,43 @@ export function useSocket() {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnectionDelayMax: 10000,
       timeout: 20000,
     });
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      console.log(`✅ Socket connected: ${socket.id} for user:${uid}`);
+      console.log(`🟢 [SOCKET] Connected: ${socket.id} | User: ${uid}`);
     });
     socket.on("disconnect", (reason) => {
-      console.log(`🔌 Socket disconnected: ${reason}`);
+      console.log(`🔴 [SOCKET] Disconnected: ${reason}`);
     });
     socket.on("connect_error", (err) => {
-      console.error("❌ Socket connection error:", err.message);
+      console.error("❌ [SOCKET] Connection Error:", err.message);
     });
 
     // PRODUCT EVENTS
     socket.on("product:created", (payload: any) => {
+      console.log("📩 [SOCKET] Received product:created | ID:", payload?.id);
       dispatch(addProductLocally(payload));
     });
     socket.on("product:updated", (payload: any) => {
+      console.log(
+        `📩 [SOCKET] Received product:updated | ID: ${payload?.id}, Status: ${payload?.status}, Business: ${payload?.businessId}`
+      );
       dispatch(updateProductLocally(payload));
     });
     socket.on("product:deleted", (payload: { id: string }) => {
+      console.log("📩 [SOCKET] Received product:deleted | ID:", payload?.id);
       dispatch(removeProductLocally(payload.id));
     });
 
     // BUSINESS EVENTS
     socket.on("business:created", (payload: any) => {
+      console.log(
+        "📩 [SOCKET] Received business:created | ID:",
+        payload?.businessId
+      );
       dispatch(addBusinessLocally(payload));
     });
     socket.on("business:updated", (payload: any) => {
@@ -71,6 +86,7 @@ export function useSocket() {
     });
 
     return () => {
+      console.log("🧹 [SOCKET] Cleaning up connection for", uid);
       socket.off("connect");
       socket.off("disconnect");
       socket.off("connect_error");
