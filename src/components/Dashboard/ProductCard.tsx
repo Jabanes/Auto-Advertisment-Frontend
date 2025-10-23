@@ -11,6 +11,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const dispatch = useAppDispatch();
   const token = useAppSelector((s) => s.auth.serverToken);
   const businessId = useAppSelector((s) => s.business.currentBusiness?.businessId);
+  const business = useAppSelector((s) => s.business.currentBusiness);
 
   const N8N_URL = import.meta.env.VITE_N8N_URL;
   const [showMenu, setShowMenu] = useState(false);
@@ -58,17 +59,15 @@ export default function ProductCard({ product }: { product: Product }) {
     e.stopPropagation();
     if (!token || !businessId) return;
 
-    // Don't allow re-triggering if already processing
     if (isProcessing) return;
 
     console.log(`🚀 Triggering enrichment for product ${product.id}`);
-
-    // Optimistic update for instant UI feedback
     dispatch(setProductStatus({ id: product.id, status: "processing" }));
 
     try {
-      // 1. Update status to "processing" in backend first (persists to DB)
       const API_URL = import.meta.env.VITE_API_URL;
+
+      // 1️⃣ Update status in DB
       await fetch(`${API_URL}/products/update/${businessId}/${product.id}`, {
         method: "PATCH",
         headers: {
@@ -80,24 +79,26 @@ export default function ProductCard({ product }: { product: Product }) {
 
       console.log("✅ Status updated to processing in DB");
 
-      // 2. Trigger n8n workflow (fire & forget)
-      fetch(`${N8N_URL}/webhook/enrich-product`, {
+      // 2️⃣ Trigger n8n (fire & forget, handle empty response safely)
+      await fetch(`${N8N_URL}/webhook/enrich-product`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accessToken: token,
           businessId,
+          business,
           product,
         }),
       })
-        .then((r) => r.json())
+        .then(async (r) => {
+          const text = await r.text();
+          return text ? JSON.parse(text) : {};
+        })
         .then((data) => {
           console.log("✅ n8n workflow triggered successfully:", data);
-          // Server will emit socket event when complete
         })
         .catch((err) => {
           console.error("❌ Workflow trigger failed:", err);
-          // Set failed status if n8n trigger fails
           dispatch(setProductStatus({ id: product.id, status: "failed" }));
         });
     } catch (err) {
@@ -105,6 +106,7 @@ export default function ProductCard({ product }: { product: Product }) {
       dispatch(setProductStatus({ id: product.id, status: "failed" }));
     }
 
+    // ✅ Always close menu after the action finishes (success or error)
     setShowMenu(false);
   };
 

@@ -1,44 +1,57 @@
+// src/types/business.ts
 export interface Business {
   businessId: string;
   name: string;
   description?: string | null;
+  slogan?: string | null;
   logoUrl?: string | null;
+
+  // 🏠 Business Address
   address?: {
     street?: string;
     city?: string;
     postalCode?: string;
     country?: string;
   } | null;
+
+  // ☎️ Contact Information
   contactPhone?: string | null;
   businessEmail?: string | null;
   websiteUrl?: string | null;
+
+  // 🎨 Branding
+  brandColors?: string[];
+  preferredStyle?: string | null;
+  visualStyle?: string | null;
+
   owner?: {
     name?: string;
     email?: string;
     phone?: string;
   } | null;
-  brandColors?: string[];
-  preferredStyle?: "realistic" | "illustrated" | "bw" | "colourful";
 
-  // 🧠 AI personalization fields
-  businessType?: "product_seller" | "service_provider" | "content_creator" | null;
+  // 🤖 AI Context & Personalization
+  businessType?: string | null;
   category?: string | null;
   targetAudience?: string | null;
   toneOfVoice?: string | null;
-  visualStyle?: string | null;
   businessPersona?: {
-    type?: "owner" | "brand" | null;
+    type?: string | null;
     name?: string | null;
-    gender?: "male" | "female" | "neutral" | null;
+    gender?: string | null;
   } | null;
-  sellingPlatforms?: string[]; // e.g. ["facebook_marketplace", "instagram"]
+  businessGoal?: string | null;
+  preserveOriginalProduct?: boolean | null;
+  sellingPlatforms?: string[] | null;
   location?: string | null;
-  languages?: string[]; // e.g. ["hebrew"]
-  businessGoal?: "sale" | "brand_awareness" | "lead_generation" | null;
-  slogan?: string | null;
+  languages?: string[] | null;
+
+  // 🌐 Social Links
   instagram?: string | null;
   facebook?: string | null;
   tiktok?: string | null;
+
+  // 🕒 Metadata
   createdAt?: string | null;
   updatedAt?: string | null;
 }

@@ -1,0 +1,76 @@
+{
+  "category": {
+    "label": "קטגוריה עסקית",
+    "type": "dropdown",
+    "options": {
+      "education": "חינוך / אקדמיה",
+      "food": "מזון / מסעדות",
+      "fashion": "אופנה / בגדים",
+      "jewelry": "תכשיטים / אביזרים",
+      "technology": "טכנולוגיה / תוכנה",
+      "beauty": "טיפוח / יופי",
+      "fitness": "כושר / בריאות",
+      "real_estate": "נדל״ן",
+      "services": "שירותים מקצועיים",
+      "content_creator": "יוצר תוכן / אינפלוינסר",
+      "other": "אחר"
+    }
+  },
+  "toneOfVoice": {
+    "label": "טון דיבור",
+    "type": "dropdown",
+    "options": {
+      "friendly": "חברי וקליל",
+      "professional": "רשמי ומקצועי",
+      "inspirational": "השראתי ומניע",
+      "luxury": "יוקרתי ואלגנטי",
+      "playful": "יצירתי ומשעשע"
+    }
+  },
+  "preferredStyle": {
+    "label": "סגנון תמונה מועדף",
+    "type": "dropdown",
+    "options": {
+      "realistic": "ריאליסטי",
+      "creative": "יצירתי / אמנותי",
+      "illustrated": "מאויר / דיגיטלי",
+      "bw": "שחור-לבן",
+      "minimalistic": "מינימליסטי"
+    }
+  },
+  "businessType": {
+    "label": "סוג העסק",
+    "type": "dropdown",
+    "options": {
+      "product_seller": "מוכר מוצרים",
+      "service_provider": "נותן שירותים",
+      "content_creator": "יוצר תוכן / קורסים"
+    }
+  },
+  "businessPersona": {
+    "label": "אישיות העסק",
+    "type": "dropdown",
+    "options": {
+      "owner": "אדם פרטי / עצמאי (לדוגמה: היי, אני מאיה...)",
+      "brand": "מותג / צוות (לדוגמה: אנחנו ב-COB)"
+    }
+  },
+  "businessGoal": {
+    "label": "מטרה שיווקית",
+    "type": "dropdown",
+    "options": {
+      "sale": "הגדלת מכירות",
+      "brand_awareness": "חשיפה למותג",
+      "lead_generation": "יצירת לידים",
+      "engagement": "מעורבות קהל",
+      "traffic": "תנועה לאתר / עמוד",
+      "other": "אחר"
+    }
+  },
+  "preserveOriginalProduct": {
+    "label": "לשמור על המוצר המקורי בתמונה",
+    "type": "boolean",
+    "trueLabel": "כן, לשמור על המוצר כפי שהוא",
+    "falseLabel": "לא, לאפשר יצירתיות מלאה"
+  }
+}

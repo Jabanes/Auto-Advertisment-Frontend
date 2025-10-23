@@ -3,8 +3,9 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { createProduct, updateProduct } from "../store/slices/productSlice";
 import { theme } from "../styles/theme";
 import type { Product } from "../types/product";
-import { Upload } from "lucide-react";
+import { Upload, Settings } from "lucide-react";
 import { productService } from "../services/productService";
+import config from "../config/productConfig.json"; // 🧩 JSON with dropdown options (you’ll create this later)
 
 interface Props {
   mode: "create" | "edit";
@@ -17,6 +18,7 @@ const EMPTY_PRODUCT: Partial<Product> = {
   price: 0,
   description: "",
   imageUrl: "",
+  preserveOriginalProduct: true,
 };
 
 export default function ProductEditModal({ mode, product, onClose }: Props) {
@@ -24,13 +26,12 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
   const token = useAppSelector((s) => s.auth.serverToken);
   const businessId = useAppSelector((s) => s.business.currentBusiness?.businessId);
 
-  const [form, setForm] = useState<Partial<Product>>(
-    mode === "edit" ? product! : EMPTY_PRODUCT
-  );
+  const [form, setForm] = useState<Partial<Product>>(mode === "edit" ? product! : EMPTY_PRODUCT);
   const [loading, setLoading] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const isEdit = mode === "edit";
-
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -40,7 +41,7 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
 
   const handleImageClick = () => imageInputRef.current?.click();
 
-  // 🖼️ Preview only (no upload yet)
+  // 🖼️ Preview only
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -48,7 +49,6 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
     setPreviewUrl(URL.createObjectURL(file));
   };
 
-  // 🧹 Cleanup preview URL on unmount
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -62,25 +62,21 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
   };
 
   const handleSave = async () => {
-    console.log("[DEBUG] Save button clicked", { mode, token, businessId, form });
     if (!token || !businessId) return;
-
     try {
       setLoading(true);
       let imageUrl = form.imageUrl;
       let newProduct: Product | null = null;
 
       if (isEdit) {
-        // --- UPDATE EXISTING PRODUCT ---
+        // --- UPDATE PRODUCT ---
         if (pendingImageFile && (form.id || product?.id)) {
-          console.log("[UPLOAD] Uploading image to Firebase...");
           imageUrl = await productService.uploadImage(
             token,
             businessId,
             form.id || product!.id,
             pendingImageFile
           );
-          console.log("[UPLOAD] Done:", imageUrl);
         }
 
         const updates: Partial<Product> = {};
@@ -105,7 +101,7 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
           })
         ).unwrap();
       } else {
-        // --- CREATE NEW PRODUCT ---
+        // --- CREATE PRODUCT ---
         newProduct = await dispatch(
           createProduct({
             token,
@@ -115,24 +111,11 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
         ).unwrap();
 
         if (pendingImageFile && newProduct?.id) {
-          console.log("[UPLOAD] Uploading new product image...");
-          imageUrl = await productService.uploadImage(
-            token,
-            businessId,
-            newProduct.id,
-            pendingImageFile
-          );
-          console.log("[UPLOAD] Done:", imageUrl);
-
+          imageUrl = await productService.uploadImage(token, businessId, newProduct.id, pendingImageFile);
           await dispatch(
             updateProduct({
               token,
-              product: {
-                ...newProduct,
-                imageUrl,
-                businessId,
-                id: newProduct.id,
-              },
+              product: { ...newProduct, imageUrl, businessId, id: newProduct.id },
             })
           ).unwrap();
         }
@@ -181,14 +164,7 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
         }}
       >
         {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: theme.spacing.lg,
-          }}
-        >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: theme.colors.textDark }}>
             {isEdit ? "Edit Product" : "Create New Product"}
           </h1>
@@ -206,23 +182,9 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
           </button>
         </div>
 
-        {/* Grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: theme.spacing.lg,
-          }}
-        >
-          {/* Left Side (fields) */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {isEdit && form.id && (
-              <>
-                <label>ID</label>
-                <div style={infoBox}>{form.id}</div>
-              </>
-            )}
-
+        {/* Basic Fields */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 24 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <label>Name</label>
             <input
               value={form.name || ""}
@@ -234,10 +196,7 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
             <input
               type="number"
               value={form.price ?? ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                handleChange("price", val === "" ? 0 : parseFloat(val));
-              }}
+              onChange={(e) => handleChange("price", parseFloat(e.target.value) || 0)}
               style={inputStyle}
             />
 
@@ -247,11 +206,21 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
               onChange={(e) => handleChange("description", e.target.value)}
               style={{ ...inputStyle, height: 80 }}
             />
+
+            <label>
+              <input
+                type="checkbox"
+                checked={!!form.preserveOriginalProduct}
+                onChange={(e) => handleChange("preserveOriginalProduct", e.target.checked)}
+                style={{ marginRight: 8 }}
+              />
+              Preserve Original Product Image
+            </label>
           </div>
 
-          {/* Right Side (Image) */}
+          {/* Image */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ position: "relative", cursor: "pointer" }} onClick={handleImageClick}>
+            <div onClick={handleImageClick} style={{ position: "relative", cursor: "pointer" }}>
               {previewUrl || form.imageUrl ? (
                 <img src={previewUrl || form.imageUrl!} alt="Product" style={imageLarge} />
               ) : (
@@ -269,15 +238,7 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
                 </div>
               )}
             </div>
-
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={handleImageUpload}
-            />
-
+            <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageUpload} />
             {(previewUrl || form.imageUrl) && (
               <button onClick={handleRemoveImage} style={removeBtn}>
                 Remove Image
@@ -286,41 +247,148 @@ export default function ProductEditModal({ mode, product, onClose }: Props) {
           </div>
         </div>
 
-        {/* Footer */}
-        <div
+        {/* 🧩 Advanced Settings Toggle */}
+        <button
+          onClick={() => setShowAdvanced((p) => !p)}
           style={{
+            marginTop: 24,
+            background: theme.colors.backgroundLight,
+            border: `1px solid ${theme.colors.borderLight}`,
+            borderRadius: 12,
+            padding: "10px 16px",
+            cursor: "pointer",
             display: "flex",
-            justifyContent: "flex-end",
-            marginTop: theme.spacing.xl,
-            gap: theme.spacing.md,
+            alignItems: "center",
+            gap: 8,
+            fontWeight: 600,
           }}
         >
-          <button
-            onClick={onClose}
-            style={{
-              backgroundColor: theme.colors.backgroundLight,
-              color: theme.colors.textDark,
-              borderRadius: theme.radii.md,
-              padding: "10px 24px",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
+          <Settings size={18} /> {showAdvanced ? "Hide Advanced Settings" : "Show Advanced Settings"}
+        </button>
+
+        {/* 🧠 Advanced Settings Section */}
+        {showAdvanced && (
+          <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            <label>
+              {config.productType.label}
+              <select
+                value={form.productType || ""}
+                onChange={(e) => handleChange("productType", e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">בחר...</option>
+                {Object.entries(config.productType.options).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              {config.productCategory.label}
+              <select
+                value={form.productCategory || ""}
+                onChange={(e) => handleChange("productCategory", e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">בחר...</option>
+                {Object.entries(config.productCategory.options).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              {config.visualMood.label}
+              <select
+                value={form.visualMood || ""}
+                onChange={(e) => handleChange("visualMood", e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">בחר...</option>
+                {Object.entries(config.visualMood.options).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              {config.photoStyle.label}
+              <select
+                value={form.photoStyle || ""}
+                onChange={(e) => handleChange("photoStyle", e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">בחר...</option>
+                {Object.entries(config.photoStyle.options).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              {config.backgroundStyle.label}
+              <select
+                value={form.backgroundStyle || ""}
+                onChange={(e) => handleChange("backgroundStyle", e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">בחר...</option>
+                {Object.entries(config.backgroundStyle.options).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              {config.aspectRatio.label}
+              <select
+                value={form.aspectRatio || ""}
+                onChange={(e) => handleChange("aspectRatio", e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">בחר...</option>
+                {Object.entries(config.aspectRatio.options).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              קהל יעד
+              <input
+                placeholder="לדוגמה: נשים צעירות, ילדים, אנשי מקצוע בתחום העיצוב..."
+                value={form.targetAudience || ""}
+                onChange={(e) => handleChange("targetAudience", e.target.value)}
+                style={inputStyle}
+              />
+            </label>
+
+            {/* 🧩 Checkboxes */}
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={!!form.includePriceInAd}
+                onChange={(e) => handleChange("includePriceInAd", e.target.checked)}
+              />
+              הצג מחיר במודעה
+            </label>
+
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={!!form.emphasizeBrandIdentity}
+                onChange={(e) => handleChange("emphasizeBrandIdentity", e.target.checked)}
+              />
+              כלול לוגו של העסק בתמונה
+            </label>
+          </div>
+        )}
+        {/* Footer */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24, gap: 12 }}>
+          <button onClick={onClose} style={cancelBtn}>
             Close
           </button>
-          <button
-            disabled={loading}
-            onClick={handleSave}
-            style={{
-              backgroundColor: theme.colors.primary,
-              color: "white",
-              borderRadius: theme.radii.md,
-              padding: "10px 24px",
-              border: "none",
-              cursor: "pointer",
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
+          <button disabled={loading} onClick={handleSave} style={saveBtn}>
             {loading ? "Saving..." : isEdit ? "Save Changes" : "Create Product"}
           </button>
         </div>
@@ -336,15 +404,6 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid rgba(0,0,0,0.1)",
   fontSize: 14,
   outline: "none",
-};
-
-const infoBox: React.CSSProperties = {
-  padding: "10px",
-  borderRadius: 8,
-  background: "#f9fafb",
-  border: "1px solid rgba(0,0,0,0.1)",
-  fontSize: 14,
-  color: theme.colors.textDark,
 };
 
 const imageLarge: React.CSSProperties = {
@@ -363,4 +422,22 @@ const removeBtn: React.CSSProperties = {
   fontSize: 13,
   cursor: "pointer",
   alignSelf: "flex-start",
+};
+
+const cancelBtn: React.CSSProperties = {
+  backgroundColor: theme.colors.backgroundLight,
+  color: theme.colors.textDark,
+  borderRadius: 8,
+  padding: "10px 24px",
+  border: "none",
+  cursor: "pointer",
+};
+
+const saveBtn: React.CSSProperties = {
+  backgroundColor: theme.colors.primary,
+  color: "white",
+  borderRadius: 8,
+  padding: "10px 24px",
+  border: "none",
+  cursor: "pointer",
 };
