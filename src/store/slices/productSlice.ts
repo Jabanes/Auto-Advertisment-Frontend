@@ -1,3 +1,15 @@
+/**
+ * 🔄 PRODUCT SLICE - Socket-First State Management
+ * 
+ * DEBUG FLOW:
+ * 1. Socket emits product:updated → useSocket dispatches updateProductLocally
+ * 2. updateProductLocally normalizes id/_id, merges state immutably
+ * 3. Redux notifies React → ProductCard re-renders with new status
+ * 4. Logs show: [REDUX] updateProductLocally → [UI] Re-render with new status
+ * 
+ * FALLBACK: REST polling only if socket disconnected for >25s
+ */
+
 import {
   createSlice,
   createAsyncThunk,
@@ -85,18 +97,38 @@ const productSlice = createSlice({
 
     // 🔔 Socket event handler: product:updated
     // Merges incoming fields with existing product (idempotent)
-    updateProductLocally: (state, action: PayloadAction<Partial<Product> & { id: string }>) => {
-      const idx = state.items.findIndex((p) => p.id === action.payload.id);
+    // Handles both id and _id keys for Firestore compatibility
+    updateProductLocally: (state, action: PayloadAction<Partial<Product> & { id?: string; _id?: string }>) => {
+      // ✅ Normalize ID: accept both "id" and "_id" from backend
+      const productId = action.payload.id || action.payload._id;
+      
+      if (!productId) {
+        console.warn("⚠️ [REDUX] updateProductLocally called with no id or _id — ignoring payload:", action.payload);
+        return;
+      }
+
+      const idx = state.items.findIndex((p) => p.id === productId || (p as any)._id === productId);
+      
       if (idx !== -1) {
-        // Merge incoming fields with existing product
+        const oldStatus = state.items[idx].status;
+        const newStatus = action.payload.status;
+        
+        // Merge incoming fields immutably
         state.items[idx] = {
           ...state.items[idx],
           ...action.payload,
+          id: productId, // Normalize to always use "id"
         };
+        
+        console.log(
+          `🧩 [REDUX] updateProductLocally → ID=${productId} | Found=true | StatusChange=${oldStatus}→${newStatus || oldStatus}`
+        );
       } else {
         // Product doesn't exist locally yet - add it
-        console.warn(`Product ${action.payload.id} not found locally, adding it`);
-        state.items.unshift(action.payload as Product);
+        console.warn(
+          `⚠️ [REDUX] Product not found locally (ID=${productId}) — adding new one | Status=${action.payload.status}`
+        );
+        state.items.unshift({ ...action.payload, id: productId } as Product);
       }
     },
 

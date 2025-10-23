@@ -1,10 +1,31 @@
-import { useState, useEffect } from "react";
+/**
+ * 🎴 PRODUCT CARD - UI Component with Socket-First Updates
+ * 
+ * DEBUG FLOW:
+ * 1. Component renders with current product status from Redux
+ * 2. User clicks "Generate" → optimistic update to "processing"
+ * 3. Socket receives product:updated → Redux updates → component re-renders
+ * 4. Status badge and spinner update immediately
+ * 
+ * FALLBACK LOGIC:
+ * - If socket connected: rely purely on socket events (no polling)
+ * - If socket disconnected for >25s AND status=processing: start polling DB
+ * - Once non-processing status detected: stop polling
+ * 
+ * LOGS TO WATCH:
+ * - 🎴 [UI] Rendering ProductCard → shows current state
+ * - ⚡ [UI] Status changed → shows transition
+ * - ⏱️ [FALLBACK] Starting DB polling → fallback activated
+ * - ✅ [FALLBACK] DB polling detected update → fallback succeeded
+ */
+
+import { useState, useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
   deleteProduct,
   setProductStatus,
   updateProductLocally,
-  
+
 } from "../../store/slices/productSlice";
 import { theme } from "../../styles/theme";
 import type { Product } from "../../types/product";
@@ -16,10 +37,14 @@ export default function ProductCard({ product }: { product: Product }) {
   const business = useAppSelector((s) => s.business.currentBusiness);
   const API_URL = import.meta.env.VITE_API_URL;
   const N8N_URL = import.meta.env.VITE_N8N_URL;
+  const isSocketConnected = useAppSelector((s) => s.socket.isConnected);
+  const lastDisconnectReason = useAppSelector((s) => s.socket.lastDisconnectReason);
 
+  // Track previous status to detect changes
+  const prevStatusRef = useRef<string | undefined>(product.status);
 
-   // 🧪 Toggle this flag to switch between environments
-  const IS_TESTING = true; // change to true when testing locally
+  // 🧪 Toggle this flag to switch between environments
+  const IS_TESTING = false; // change to true when testing locally
 
   // ✅ Choose endpoint based on mode
   const N8N_WEBHOOK = IS_TESTING
@@ -27,12 +52,54 @@ export default function ProductCard({ product }: { product: Product }) {
     : `${N8N_URL}/webhook/enrich-product`; // production webhook
 
   const [showMenu, setShowMenu] = useState(false);
+  
+  // Log render and status changes
+  console.log(
+    `🎴 [UI] Rendering ProductCard | ID=${product.id} | Status=${product.status} | SocketConnected=${isSocketConnected}`
+  );
+  
+  if (prevStatusRef.current !== product.status) {
+    console.log(
+      `⚡ [UI] Status changed for ${product.id} | ${prevStatusRef.current}→${product.status} ${
+        product.status !== "processing" ? "→ Stopping spinner ✓" : ""
+      }`
+    );
+    prevStatusRef.current = product.status;
+  }
 
-   useEffect(() => {
-    if (product.status === "processing") {
-      console.log("⏳ Polling for product status...");
+  useEffect(() => {
+    // Only act when the product is "processing"
+    if (product.status !== "processing") {
+      return;
+    }
 
+    console.log(
+      `⏳ [FALLBACK] Product ${product.id} is processing | Socket=${isSocketConnected ? "✓ connected" : "✗ disconnected"} ${
+        lastDisconnectReason ? `(reason: ${lastDisconnectReason})` : ""
+      }`
+    );
+
+    // If socket is connected, rely purely on socket events (no fallback needed)
+    if (isSocketConnected) {
+      console.log(`  └─ Socket active → relying on real-time updates (no polling)`);
+      return;
+    }
+
+    // ⏲️ Socket is disconnected - start grace period before fallback
+    console.warn(
+      `⚠️ [FALLBACK] Socket disconnected for product ${product.id} → starting 25s grace period before DB polling...`
+    );
+
+    const fallbackTimeout = setTimeout(() => {
+      console.warn(
+        `⏱️ [FALLBACK] Grace period elapsed for product ${product.id} → activating DB polling every 5s`
+      );
+
+      let pollCount = 0;
       const interval = setInterval(async () => {
+        pollCount++;
+        console.log(`🔄 [FALLBACK] Polling DB for product ${product.id} (attempt #${pollCount})...`);
+
         try {
           const res = await fetch(
             `${API_URL}/products?businessId=${product.businessId}`,
@@ -40,23 +107,43 @@ export default function ProductCard({ product }: { product: Product }) {
               headers: { Authorization: `Bearer ${token}` },
             }
           );
+          
+          if (!res.ok) {
+            console.error(`❌ [FALLBACK] API returned ${res.status} ${res.statusText}`);
+            return;
+          }
+
           const data = await res.json();
-          const updated = data.products.find((p) => p.id === product.id);
+          const updated = data.products.find((p: Product) => p.id === product.id);
 
           if (updated && updated.status !== "processing") {
-            console.log("✅ Product updated via polling:", updated.status);
+            console.log(
+              `✅ [FALLBACK] DB polling detected product status update → ${updated.status} (after ${pollCount} attempts)`
+            );
             dispatch(updateProductLocally(updated));
             clearInterval(interval);
+          } else {
+            console.log(`  └─ Still processing... will retry in 5s`);
           }
         } catch (err) {
-          console.error("⚠️ Polling error:", err);
+          console.error(`❌ [FALLBACK] Polling error for product ${product.id}:`, err);
         }
       }, 5000);
 
-      return () => clearInterval(interval);
-    }
-  }, [product.status, product.businessId, product.id, token, dispatch, API_URL]);
-  
+      // Cleanup polling when product finishes or unmounts
+      return () => {
+        console.log(`🧹 [FALLBACK] Stopping DB polling for product ${product.id}`);
+        clearInterval(interval);
+      };
+    }, 25000); // wait 25 seconds before fallback
+
+    // 🧹 Cleanup timeout if the component unmounts or status changes
+    return () => {
+      console.log(`🧹 [FALLBACK] Clearing grace period timeout for product ${product.id}`);
+      clearTimeout(fallbackTimeout);
+    };
+  }, [product.status, product.businessId, product.id, token, dispatch, API_URL, isSocketConnected, lastDisconnectReason]);
+
   // ✅ Inject CSS keyframes once (only on first mount)
   useEffect(() => {
     const existingStyle = document.getElementById("product-card-animations");
@@ -98,25 +185,30 @@ export default function ProductCard({ product }: { product: Product }) {
 
   const handleGenerate = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!token || !businessId) return;
-
-    console.log(
-      `[PRODUCT] Starting generation for ${product?.id} | Status: ${product?.status}`
-    );
-
-    if (isProcessing) {
-      console.log("[PRODUCT] ⚠️ Generation already in progress. Ignoring.");
+    if (!token || !businessId) {
+      console.warn("⚠️ [UI] Cannot generate: missing token or businessId");
       return;
     }
 
+    console.log(
+      `🚀 [UI] User clicked Generate for product ${product?.id} | CurrentStatus=${product?.status}`
+    );
+
+    if (isProcessing) {
+      console.log("⚠️ [UI] Generation already in progress. Ignoring duplicate click.");
+      return;
+    }
+
+    // 1️⃣ Optimistic update: set status to "processing" immediately for UI responsiveness
     dispatch(setProductStatus({ id: product.id, status: "processing" }));
-    console.log("[PRODUCT] ✅ Optimistic status set to 'processing'");
-    
+    console.log(`  └─ ✅ Optimistic Redux update: status → "processing"`);
+
     try {
       const API_URL = import.meta.env.VITE_API_URL;
 
-      // 1️⃣ Update status in DB
-      await fetch(`${API_URL}/products/update/${businessId}/${product.id}`, {
+      // 2️⃣ Update status in DB (backend will emit socket event after this)
+      console.log(`  └─ 📤 Sending PATCH to backend to persist "processing" status...`);
+      const updateRes = await fetch(`${API_URL}/products/update/${businessId}/${product.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -125,11 +217,14 @@ export default function ProductCard({ product }: { product: Product }) {
         body: JSON.stringify({ status: "processing" }),
       });
 
-      console.log("[PRODUCT] ✅ Status updated to 'processing' in DB via PATCH");
+      if (!updateRes.ok) {
+        throw new Error(`Backend returned ${updateRes.status}`);
+      }
 
-      // 2️⃣ Trigger n8n (fire & forget, handle empty response safely)
-      console.log("📡 [PRODUCT] Triggering n8n webhook...");
-      // fetch(`${N8N_URL}/webhook/enrich-product`, {
+      console.log(`  └─ ✅ Backend confirmed status update (socket event should follow)`);
+
+      // 3️⃣ Trigger n8n workflow (fire & forget, handle empty response safely)
+      console.log(`  └─ 📡 Triggering n8n webhook at: ${N8N_WEBHOOK}`);
       fetch(N8N_WEBHOOK, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -145,14 +240,14 @@ export default function ProductCard({ product }: { product: Product }) {
           return text ? JSON.parse(text) : {};
         })
         .then((data) => {
-          console.log("✅ [PRODUCT] n8n workflow triggered successfully:", data);
+          console.log("  └─ ✅ n8n workflow triggered successfully:", data);
         })
         .catch((err) => {
-          console.error("❌ [PRODUCT] n8n workflow trigger failed:", err);
+          console.error("  └─ ❌ n8n workflow trigger failed:", err);
           dispatch(setProductStatus({ id: product.id, status: "failed" }));
         });
     } catch (err) {
-      console.error("❌ [PRODUCT] Failed to update status in DB:", err);
+      console.error("❌ [UI] Failed to update status in DB:", err);
       dispatch(setProductStatus({ id: product.id, status: "failed" }));
     }
 
