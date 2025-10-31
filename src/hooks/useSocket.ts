@@ -50,10 +50,22 @@ export function useSocket() {
 
     // PRODUCT EVENTS
     socket.on("product:created", (payload: any) => {
+      console.log("📦 Socket product:updated →", payload);
       dispatch(addProductLocally(payload));
     });
     socket.on("product:updated", (payload: any) => {
-      dispatch(updateProductLocally(payload));
+      const normalized = {
+        id: payload.id || payload.productId,
+        status: payload.status,
+        ...payload,
+      };
+
+      if (!normalized.id) {
+        console.warn("⚠️ Received product:updated without id/productId:", payload);
+        return;
+      }
+
+      dispatch(updateProductLocally(normalized));
     });
     socket.on("product:deleted", (payload: { id: string }) => {
       dispatch(removeProductLocally(payload.id));

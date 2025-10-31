@@ -11,6 +11,8 @@ export default function ProductCard({ product }: { product: Product }) {
   const dispatch = useAppDispatch();
   const token = useAppSelector((s) => s.auth.serverToken);
   const businessId = useAppSelector((s) => s.business.currentBusiness?.businessId);
+  const [isReverting, setIsReverting] = useState(false);
+  const isProcessing = product.status === "processing";
 
   const N8N_URL = import.meta.env.VITE_N8N_URL;
   const [showMenu, setShowMenu] = useState(false);
@@ -108,7 +110,44 @@ export default function ProductCard({ product }: { product: Product }) {
     setShowMenu(false);
   };
 
-  const isProcessing = product.status === "processing";
+
+  const handleRevert = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!token || !businessId || !product.id) return;
+
+    setIsReverting(true);
+    try {
+      dispatch(setProductStatus({ id: product.id, status: "processing" }));
+      const API_URL = import.meta.env.VITE_API_URL;
+      const res = await fetch(`${API_URL}/products/update/${businessId}/${product.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: "pending",
+          advertisementText: "",
+          imagePrompt: "",
+          generatedImageUrl: "",
+          error: null,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to revert product");
+
+      dispatch(setProductStatus({ id: product.id, status: "pending" }));
+      console.log(`↩️ Product ${product.id} reverted to pending`);
+    } catch (err) {
+      console.error("❌ Failed to revert:", err);
+      alert("לא הצלחנו להחזיר את המוצר ל־Pending");
+      dispatch(setProductStatus({ id: product.id, status: "failed" }));
+    } finally {
+      setIsReverting(false);
+      setShowMenu(false);
+    }
+  };
+
 
   return (
     <div
@@ -271,6 +310,24 @@ export default function ProductCard({ product }: { product: Product }) {
         >
           Delete
         </button>
+
+        {product.status !== "pending" && (
+          <button
+            onClick={handleRevert}
+            style={{
+              background: theme.colors.warning,
+              border: "none",
+              color: "white",
+              fontWeight: 600,
+              padding: "8px 14px",
+              borderRadius: 8,
+              cursor: "pointer",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.25)",
+            }}
+          >
+            Revert
+          </button>
+        )}
       </div>
     </div>
   );
